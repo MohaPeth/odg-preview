@@ -1,0 +1,39 @@
+/* Gestion des z-index pour l'intégration avec Leaflet 
+   Suivant les principes de Dieter Rams : Simple, Fonctionnel, Discret */
+
+/* Leaflet utilise z-index: 1000 pour ses contrôles */
+.leaflet-container {
+  z-index: 1000;
+}
+
+/* Les modals doivent être au-dessus de la carte */
+.modal-overlay {
+  z-index: 9998 !important;
+}
+
+.modal-content {
+  z-index: 9999 !important;
+}
+
+/* Les dropdowns des selects dans les modals */
+.select-content-modal {
+  z-index: 10000 !important;
+}
+
+/* Animation subtile pour les modals - Principe: Bon design est aussi peu design que possible */
+.modal-content {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus visible pour l'accessibilité - Principe: Bon design est compréhensible */
+.modal-content:focus-within {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+/* Responsive - Principe: Bon design est adaptable */
+@media (max-width: 768px) {
+  .modal-content {
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 2rem);
+  }
+}

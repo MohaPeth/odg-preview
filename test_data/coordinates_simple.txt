@@ -1,0 +1,14 @@
+# Coordonnées de Points d'Intérêt Géologique - Gabon
+# Format: nom|latitude|longitude|type|description
+# Système de coordonnées: WGS84 (EPSG:4326)
+
+Station Géologique Libreville|0.3901|9.4536|station|Station de mesures géologiques principale
+Point de Forage PF-001|0.4156|9.5234|forage|Forage d'exploration géologique profondeur 150m
+Affleurement Rocheux AR-12|0.7833|11.5547|affleurement|Affleurement de roches métamorphiques
+Point GPS Triangulation T1|1.0847|13.2156|triangulation|Point de triangulation géodésique
+Station Sismique SS-03|1.6333|13.5833|sismique|Station de surveillance sismique
+Point de Prélèvement PP-45|-1.5667|13.2167|prelevement|Point de prélèvement d'échantillons minéraux
+Repère Géodésique RG-007|0.7000|10.2333|repere|Repère géodésique national IGN
+Point de Mesure Magnétique PM-89|2.8500|11.4167|magnetique|Point de mesure du champ magnétique terrestre
+Station Météorologique SM-15|-1.8333|10.7500|meteo|Station météorologique pour études climatiques
+Point de Contrôle Altimétrique PCA-23|1.5833|11.5167|altimetrie|Point de contrôle altimétrique précis
