@@ -8,6 +8,7 @@ import json
 import zipfile
 import tempfile
 import logging
+import shutil
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
@@ -24,6 +25,15 @@ from src.models.geospatial_layers import GeospatialLayer, LayerUploadHistory, db
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import conditionnel pour RAR
+try:
+    import rarfile
+    RARFILE_AVAILABLE = True
+    logger.info("Module rarfile disponible - Support RAR activé")
+except ImportError:
+    RARFILE_AVAILABLE = False
+    logger.warning("Module rarfile non disponible. Support RAR désactivé.")
+
 class GeospatialImportService:
     """Service principal pour l'import de fichiers géospatiaux"""
     
@@ -31,6 +41,8 @@ class GeospatialImportService:
         'KML': ['.kml'],
         'KMZ': ['.kmz'], 
         'SHP': ['.shp'],
+        'ZIP': ['.zip'],  # Archive ZIP contenant un shapefile
+        'RAR': ['.rar'],  # Archive RAR contenant un shapefile
         'GEOJSON': ['.geojson', '.json'],
         'CSV': ['.csv'],
         'TXT': ['.txt'],
@@ -143,6 +155,7 @@ class GeospatialImportService:
         Retourne uniquement des métadonnées pour l'aperçu (compte, bounds, types)."""
         try:
             if not os.path.exists(file_path):
+                logger.error(f"Fichier non trouvé: {file_path}")
                 return False, f"Fichier non trouvé: {file_path}", None
 
             file_size = os.path.getsize(file_path)
@@ -154,10 +167,23 @@ class GeospatialImportService:
 
             file_format = self._detect_format(file_path)
             if not file_format:
-                return False, "Format de fichier non supporté", None
+                logger.error(f"Format non supporté pour: {file_path}")
+                return False, "Format de fichier non supporté. Formats acceptés: KML, KMZ, SHP, GeoJSON, CSV, TXT, TIFF", None
 
-            gdf = self._parse_file(file_path, file_format)
-            if gdf is None or gdf.empty:
+            logger.info(f"Parsing fichier {file_path} (format: {file_format})")
+            try:
+                gdf = self._parse_file(file_path, file_format)
+            except ValueError as ve:
+                # Propager les erreurs de validation avec message explicite
+                logger.error(f"Erreur de validation: {str(ve)}")
+                return False, str(ve), None
+            
+            if gdf is None:
+                logger.error(f"Échec du parsing pour {file_path}")
+                return False, f"Impossible de lire le fichier {file_format}. Vérifiez que le fichier est valide.", None
+            
+            if gdf.empty:
+                logger.error(f"Aucune donnée dans {file_path}")
                 return False, "Aucune donnée géospatiale trouvée dans le fichier", None
 
             is_valid, message = self._validate_geodataframe(gdf)
@@ -203,6 +229,10 @@ class GeospatialImportService:
                 return self._parse_kmz(file_path)
             elif file_format == 'SHP':
                 return self._parse_shapefile(file_path)
+            elif file_format == 'ZIP':
+                return self._parse_zip_shapefile(file_path)
+            elif file_format == 'RAR':
+                return self._parse_rar_shapefile(file_path)
             elif file_format == 'GEOJSON':
                 return self._parse_geojson(file_path)
             elif file_format == 'CSV':
@@ -214,8 +244,11 @@ class GeospatialImportService:
             else:
                 logger.error(f"Format non supporté: {file_format}")
                 return None
+        except ValueError as ve:
+            # Propager les ValueError (erreurs de validation)
+            raise ve
         except Exception as e:
-            logger.error(f"Erreur parsing {file_format}: {str(e)}")
+            logger.error(f"Erreur parsing {file_format}: {str(e)}", exc_info=True)
             return None
     
     def _parse_kml(self, file_path: str) -> Optional[gpd.GeoDataFrame]:
@@ -251,13 +284,135 @@ class GeospatialImportService:
             return None
     
     def _parse_shapefile(self, file_path: str) -> Optional[gpd.GeoDataFrame]:
-        """Parse un Shapefile"""
+        """Parse un Shapefile
+        
+        Note: Un shapefile nécessite plusieurs fichiers (.shp, .shx, .dbf, .prj)
+        Le file_path doit pointer vers le fichier .shp principal
+        """
         try:
+            # Vérifier que c'est bien un fichier .shp
+            if not file_path.lower().endswith('.shp'):
+                logger.error(f"Le fichier doit être un .shp, reçu: {file_path}")
+                raise ValueError("Impossible de lire le fichier SHP. Vérifiez que le fichier est valide.")
+            
+            # Vérifier l'existence des fichiers compagnons requis
+            base_path = file_path[:-4]  # Enlever .shp
+            required_files = ['.shp', '.shx', '.dbf']
+            missing_files = []
+            
+            for ext in required_files:
+                companion_file = base_path + ext
+                if not os.path.exists(companion_file):
+                    missing_files.append(ext)
+            
+            if missing_files:
+                logger.error(f"Fichiers manquants pour le shapefile: {missing_files}")
+                raise ValueError(f"Impossible de lire le fichier SHP. Fichiers manquants: {', '.join(missing_files)}")
+            
+            # Lire le shapefile
             gdf = gpd.read_file(file_path)
+            
+            if gdf.empty:
+                logger.error("Le shapefile ne contient aucune géométrie")
+                raise ValueError("Aucune donnée géospatiale trouvée dans le fichier")
+            
             return self._standardize_geodataframe(gdf)
+            
+        except ValueError as ve:
+            # Propager les erreurs de validation
+            raise ve
         except Exception as e:
-            logger.error(f"Erreur parsing Shapefile: {str(e)}")
-            return None
+            logger.error(f"Erreur parsing Shapefile: {str(e)}", exc_info=True)
+            raise ValueError("Impossible de lire le fichier SHP. Vérifiez que le fichier est valide.")
+    
+    def _parse_zip_shapefile(self, file_path: str) -> Optional[gpd.GeoDataFrame]:
+        """Parse un fichier ZIP contenant un shapefile
+        
+        Le ZIP doit contenir au minimum les fichiers .shp, .shx, .dbf
+        """
+        try:
+            logger.info(f"Extraction du ZIP: {file_path}")
+            
+            # Créer un dossier temporaire pour l'extraction
+            extract_dir = os.path.join(self.temp_dir, 'zip_extract')
+            os.makedirs(extract_dir, exist_ok=True)
+            
+            # Extraire le contenu du ZIP
+            with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                zip_ref.extractall(extract_dir)
+            
+            # Chercher le fichier .shp dans l'extraction
+            shp_files = []
+            for root, dirs, files in os.walk(extract_dir):
+                for file in files:
+                    if file.lower().endswith('.shp'):
+                        shp_files.append(os.path.join(root, file))
+            
+            if not shp_files:
+                raise ValueError("Aucun fichier .shp trouvé dans l'archive ZIP")
+            
+            if len(shp_files) > 1:
+                logger.warning(f"Plusieurs fichiers .shp trouvés, utilisation du premier: {shp_files[0]}")
+            
+            # Parser le shapefile trouvé
+            shp_path = shp_files[0]
+            logger.info(f"Shapefile trouvé: {shp_path}")
+            
+            return self._parse_shapefile(shp_path)
+            
+        except ValueError as ve:
+            raise ve
+        except Exception as e:
+            logger.error(f"Erreur parsing ZIP: {str(e)}", exc_info=True)
+            raise ValueError(f"Impossible de lire l'archive ZIP: {str(e)}")
+    
+    def _parse_rar_shapefile(self, file_path: str) -> Optional[gpd.GeoDataFrame]:
+        """Parse un fichier RAR contenant un shapefile
+        
+        Le RAR doit contenir au minimum les fichiers .shp, .shx, .dbf
+        Nécessite le module rarfile (pip install rarfile)
+        """
+        try:
+            if not RARFILE_AVAILABLE:
+                raise ValueError(
+                    "Le support RAR n'est pas disponible. "
+                    "Veuillez installer rarfile: pip install rarfile"
+                )
+            
+            logger.info(f"Extraction du RAR: {file_path}")
+            
+            # Créer un dossier temporaire pour l'extraction
+            extract_dir = os.path.join(self.temp_dir, 'rar_extract')
+            os.makedirs(extract_dir, exist_ok=True)
+            
+            # Extraire le contenu du RAR
+            with rarfile.RarFile(file_path, 'r') as rar_ref:
+                rar_ref.extractall(extract_dir)
+            
+            # Chercher le fichier .shp dans l'extraction
+            shp_files = []
+            for root, dirs, files in os.walk(extract_dir):
+                for file in files:
+                    if file.lower().endswith('.shp'):
+                        shp_files.append(os.path.join(root, file))
+            
+            if not shp_files:
+                raise ValueError("Aucun fichier .shp trouvé dans l'archive RAR")
+            
+            if len(shp_files) > 1:
+                logger.warning(f"Plusieurs fichiers .shp trouvés, utilisation du premier: {shp_files[0]}")
+            
+            # Parser le shapefile trouvé
+            shp_path = shp_files[0]
+            logger.info(f"Shapefile trouvé: {shp_path}")
+            
+            return self._parse_shapefile(shp_path)
+            
+        except ValueError as ve:
+            raise ve
+        except Exception as e:
+            logger.error(f"Erreur parsing RAR: {str(e)}", exc_info=True)
+            raise ValueError(f"Impossible de lire l'archive RAR: {str(e)}")
     
     def _parse_geojson(self, file_path: str) -> Optional[gpd.GeoDataFrame]:
         """Parse un fichier GeoJSON"""
@@ -442,6 +597,21 @@ class GeospatialImportService:
                     # Prendre la première géométrie par défaut
                     geom_wkt = gdf.geometry.iloc[0].wkt
             
+            # Préparation des métadonnées
+            metadata_dict = {
+                'properties': gdf.drop('geometry', axis=1).to_dict('records') if len(gdf.columns) > 1 else [],
+                'source_info': {
+                    'original_crs': str(gdf.crs) if gdf.crs else 'Unknown',
+                    'feature_count': len(gdf),
+                    'geometry_types': geom_types.to_dict(),
+                    'bounds': gdf.total_bounds.tolist()
+                },
+                'processing_info': {
+                    'import_date': datetime.now().isoformat(),
+                    'file_size_bytes': os.path.getsize(file_path)
+                }
+            }
+            
             # Création de la couche
             layer = GeospatialLayer(
                 name=layer_config.get('name', f'Import {file_format}'),
@@ -452,19 +622,7 @@ class GeospatialImportService:
                 source_path=file_path,
                 status=layer_config.get('status', 'actif'),
                 geom=ST_GeomFromText(geom_wkt, 4326),
-                metadata={
-                    'properties': gdf.drop('geometry', axis=1).to_dict('records') if len(gdf.columns) > 1 else {},
-                    'source_info': {
-                        'original_crs': str(gdf.crs),
-                        'feature_count': len(gdf),
-                        'geometry_types': geom_types.to_dict(),
-                        'bounds': gdf.total_bounds.tolist()
-                    },
-                    'processing_info': {
-                        'import_date': datetime.now().isoformat(),
-                        'file_size_bytes': os.path.getsize(file_path)
-                    }
-                }
+                metadata=metadata_dict
             )
             
             # Application du style par défaut
@@ -473,7 +631,7 @@ class GeospatialImportService:
             return layer
             
         except Exception as e:
-            logger.error(f"Erreur création couche: {str(e)}")
+            logger.error(f"Erreur création couche: {str(e)}", exc_info=True)
             return None
     
     def cleanup(self):

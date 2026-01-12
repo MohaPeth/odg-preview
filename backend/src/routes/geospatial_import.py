@@ -441,6 +441,68 @@ def get_supported_formats():
             'error': f'Erreur: {str(e)}'
         }), 500
 
+@geospatial_import_bp.route('/geojson', methods=['GET'])
+@cross_origin()
+def get_all_geojson():
+    """
+    Récupère toutes les couches géospatiales au format GeoJSON FeatureCollection
+    Endpoint optimisé pour l'affichage cartographique Leaflet
+    
+    Query params:
+    - layer_type: Filtrer par type
+    - status: Filtrer par statut
+    - ids: Liste d'IDs séparés par virgule
+    """
+    try:
+        # Paramètres de filtrage
+        layer_type = request.args.get('layer_type')
+        status = request.args.get('status')
+        ids = request.args.get('ids')
+        
+        # Construction de la requête
+        query = GeospatialLayer.query.filter_by(is_visible=True)
+        
+        if layer_type:
+            query = query.filter_by(layer_type=layer_type)
+        
+        if status:
+            query = query.filter_by(status=status)
+        
+        if ids:
+            id_list = [int(id.strip()) for id in ids.split(',') if id.strip().isdigit()]
+            if id_list:
+                query = query.filter(GeospatialLayer.id.in_(id_list))
+        
+        layers = query.all()
+        
+        # Construction de la FeatureCollection
+        features = []
+        for layer in layers:
+            try:
+                geojson_feature = layer.to_geojson_feature()
+                if geojson_feature:
+                    features.append(geojson_feature)
+            except Exception as e:
+                current_app.logger.warning(f"Erreur conversion GeoJSON pour couche {layer.id}: {str(e)}")
+                continue
+        
+        return jsonify({
+            'type': 'FeatureCollection',
+            'features': features,
+            'metadata': {
+                'total_features': len(features),
+                'generated_at': datetime.utcnow().isoformat()
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur récupération GeoJSON: {str(e)}")
+        return jsonify({
+            'type': 'FeatureCollection',
+            'features': [],
+            'error': str(e)
+        }), 500
+
 @geospatial_import_bp.route('/statistics', methods=['GET'])
 @cross_origin()
 def get_geospatial_statistics():

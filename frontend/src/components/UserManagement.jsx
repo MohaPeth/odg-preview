@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -26,56 +26,65 @@ import {
   Filter,
 } from "lucide-react";
 
+import { getUsers, createUser, updateUser, deleteUser } from "../services/usersApi";
+import { fetchOperators } from "../services/operatorsApi";
+
+const demoUsers = [
+  {
+    id: 1,
+    name: "Jean Dupont",
+    email: "j.dupont@odg.ga",
+    role: "admin",
+    status: "active",
+    deposits: ["Gisement Aurifère Estuaire Nord"],
+    shares: { "Gisement Aurifère Estuaire Nord": 0 },
+    createdAt: "2024-10-15",
+    lastLogin: "2024-11-15",
+  },
+  {
+    id: 2,
+    name: "Marie Martin",
+    email: "m.martin@odg.ga",
+    role: "analyst",
+    status: "active",
+    deposits: [],
+    shares: {},
+    createdAt: "2024-10-20",
+    lastLogin: "2024-11-14",
+  },
+  {
+    id: 3,
+    name: "Partenaire Minier SA",
+    email: "contact@partenaire-minier.com",
+    role: "partner",
+    status: "active",
+    deposits: ["Gisement Aurifère Estuaire Nord", "Mine de Diamant Franceville"],
+    shares: {
+      "Gisement Aurifère Estuaire Nord": 15,
+      "Mine de Diamant Franceville": 25,
+    },
+    createdAt: "2024-11-01",
+    lastLogin: "2024-11-15",
+  },
+  {
+    id: 4,
+    name: "Investisseur International",
+    email: "invest@global-mining.com",
+    role: "partner",
+    status: "pending",
+    deposits: ["Gisement Manganèse Moanda"],
+    shares: { "Gisement Manganèse Moanda": 8 },
+    createdAt: "2024-11-10",
+    lastLogin: "Jamais connecté",
+  },
+];
+
 const UserManagement = () => {
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: "Jean Dupont",
-      email: "j.dupont@odg.ga",
-      role: "admin",
-      status: "active",
-      deposits: ["Gisement Aurifère Estuaire Nord"],
-      shares: { "Gisement Aurifère Estuaire Nord": 0 },
-      createdAt: "2024-10-15",
-      lastLogin: "2024-11-15",
-    },
-    {
-      id: 2,
-      name: "Marie Martin",
-      email: "m.martin@odg.ga",
-      role: "analyst",
-      status: "active",
-      deposits: [],
-      shares: {},
-      createdAt: "2024-10-20",
-      lastLogin: "2024-11-14",
-    },
-    {
-      id: 3,
-      name: "Partenaire Minier SA",
-      email: "contact@partenaire-minier.com",
-      role: "partner",
-      status: "active",
-      deposits: ["Gisement Aurifère Estuaire Nord", "Mine de Diamant Franceville"],
-      shares: {
-        "Gisement Aurifère Estuaire Nord": 15,
-        "Mine de Diamant Franceville": 25,
-      },
-      createdAt: "2024-11-01",
-      lastLogin: "2024-11-15",
-    },
-    {
-      id: 4,
-      name: "Investisseur International",
-      email: "invest@global-mining.com",
-      role: "partner",
-      status: "pending",
-      deposits: ["Gisement Manganèse Moanda"],
-      shares: { "Gisement Manganèse Moanda": 8 },
-      createdAt: "2024-11-10",
-      lastLogin: "Jamais connecté",
-    },
-  ]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [operators, setOperators] = useState([]);
+  const [operatorsLoading, setOperatorsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -88,6 +97,7 @@ const UserManagement = () => {
     role: "partner",
     deposits: [],
     shares: {},
+    operatorId: null,
   });
 
   const availableDeposits = [
@@ -109,6 +119,82 @@ const UserManagement = () => {
     suspended: { label: "Suspendu", color: "bg-red-100 text-red-800" },
   };
 
+  const mapApiUserToUiUser = (user) => {
+    const createdAt = user.created_at || user.createdAt;
+    const lastLoginAt = user.last_login_at || user.lastLogin;
+
+    return {
+      id: user.id,
+      name: user.name || user.username,
+      email: user.email,
+      role: user.role || "partner",
+      status: user.status || "pending",
+      operatorId: user.operator_id ?? user.operatorId ?? null,
+      deposits: user.deposits || [],
+      shares: user.shares || {},
+      createdAt: createdAt ? String(createdAt).split("T")[0] : "",
+      lastLogin: lastLoginAt
+        ? String(lastLoginAt).split("T")[0]
+        : "Jamais connecté",
+    };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadUsers = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const apiUsers = await getUsers();
+        if (!isMounted) return;
+
+        const mapped = Array.isArray(apiUsers)
+          ? apiUsers.map(mapApiUserToUiUser)
+          : [];
+
+        if (mapped.length === 0) {
+          setUsers(demoUsers);
+        } else {
+          setUsers(mapped);
+        }
+      } catch (err) {
+        console.error("Erreur chargement utilisateurs", err);
+        if (!isMounted) return;
+        setError("Erreur lors du chargement des utilisateurs");
+        setUsers(demoUsers);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    const loadOperators = async () => {
+      try {
+        setOperatorsLoading(true);
+        const data = await fetchOperators();
+        if (!isMounted) return;
+        setOperators(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Erreur chargement opérateurs pour UserManagement", err);
+        if (!isMounted) return;
+        setOperators([]);
+      } finally {
+        if (isMounted) {
+          setOperatorsLoading(false);
+        }
+      }
+    };
+
+    loadUsers();
+    loadOperators();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const filteredUsers = users.filter((user) => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -116,30 +202,69 @@ const UserManagement = () => {
     return matchesSearch && matchesRole;
   });
 
-  const handleAddUser = () => {
-    const user = {
-      id: Date.now(),
-      ...newUser,
-      status: "pending",
-      createdAt: new Date().toISOString().split("T")[0],
-      lastLogin: "Jamais connecté",
-    };
-    setUsers([...users, user]);
-    setNewUser({ name: "", email: "", role: "partner", deposits: [], shares: {} });
-    setIsAddUserOpen(false);
+  const handleAddUser = async () => {
+    try {
+      const payload = {
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        status: "pending",
+      };
+
+      if ((newUser.role === "operator" || newUser.role === "partner") && newUser.operatorId) {
+        payload.operator_id = newUser.operatorId;
+      }
+
+      const created = await createUser(payload);
+      const mapped = mapApiUserToUiUser(created);
+
+      setUsers([...users, mapped]);
+      setNewUser({ name: "", email: "", role: "partner", deposits: [], shares: {} });
+      setIsAddUserOpen(false);
+    } catch (err) {
+      console.error("Erreur création utilisateur", err);
+      setError("Erreur lors de la création de l'utilisateur");
+    }
   };
 
   const handleEditUser = (user) => {
     setEditingUser({ ...user });
   };
 
-  const handleSaveEdit = () => {
-    setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
-    setEditingUser(null);
+  const handleSaveEdit = async () => {
+    try {
+      const payload = {
+        name: editingUser.name,
+        email: editingUser.email,
+        role: editingUser.role,
+        status: editingUser.status,
+      };
+
+      if (editingUser.role === "operator" || editingUser.role === "partner") {
+        payload.operator_id = editingUser.operatorId || null;
+      } else {
+        payload.operator_id = null;
+      }
+
+      const updated = await updateUser(editingUser.id, payload);
+      const mapped = mapApiUserToUiUser(updated);
+
+      setUsers(users.map((u) => (u.id === mapped.id ? mapped : u)));
+      setEditingUser(null);
+    } catch (err) {
+      console.error("Erreur mise à jour utilisateur", err);
+      setError("Erreur lors de la mise à jour de l'utilisateur");
+    }
   };
 
-  const handleDeleteUser = (userId) => {
-    setUsers(users.filter(u => u.id !== userId));
+  const handleDeleteUser = async (userId) => {
+    try {
+      await deleteUser(userId);
+      setUsers(users.filter((u) => u.id !== userId));
+    } catch (err) {
+      console.error("Erreur suppression utilisateur", err);
+      setError("Erreur lors de la suppression de l'utilisateur");
+    }
   };
 
   const handleDepositShareChange = (deposit, share) => {
@@ -231,6 +356,34 @@ const UserManagement = () => {
                   </SelectContent>
                 </Select>
               </div>
+              {(newUser.role === "operator" || newUser.role === "partner") && (
+                <div>
+                  <Label htmlFor="operator">Opérateur associé (optionnel)</Label>
+                  <Select
+                    value={newUser.operatorId ? String(newUser.operatorId) : ""}
+                    onValueChange={(value) =>
+                      setNewUser({
+                        ...newUser,
+                        operatorId: value ? parseInt(value, 10) : null,
+                      })
+                    }
+                    disabled={operatorsLoading || operators.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={operatorsLoading ? "Chargement..." : "Sélectionner un opérateur"}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operators.map((op) => (
+                        <SelectItem key={op.id} value={String(op.id)}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>

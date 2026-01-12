@@ -11,6 +11,8 @@ from src.routes.user import user_bp
 from src.routes.webgis import webgis_bp
 from src.routes.blockchain import blockchain_bp
 from src.routes.geospatial_import import geospatial_import_bp
+from src.routes.operators import operators_bp
+from src.routes.blockchain_integration import blockchain_integration_bp
 
 # Import de la configuration
 try:
@@ -49,6 +51,8 @@ def create_app():
     app.register_blueprint(webgis_bp, url_prefix='/api/webgis')
     app.register_blueprint(blockchain_bp, url_prefix='/api/blockchain')
     app.register_blueprint(geospatial_import_bp, url_prefix='/api/geospatial')
+    app.register_blueprint(operators_bp, url_prefix='/api/operators')
+    app.register_blueprint(blockchain_integration_bp, url_prefix='/api/blockchain-integration')
     
     # Initialisation de la base de données
     db.init_app(app)
@@ -204,7 +208,7 @@ def init_database():
                             source_format="CSV",
                             status="actif",
                             geom=ST_GeomFromText('POINT(9.4536 0.3901)', 4326),
-                            metadata={
+                            layer_metadata={
                                 "properties": {"ville": "Libreville", "type": "capitale"},
                                 "source_info": {"date_creation": "2025-11-17", "precision": "GPS"}
                             }
@@ -217,7 +221,7 @@ def init_database():
                             source_format="KML",
                             status="actif",
                             geom=ST_GeomFromText('LINESTRING(9.4536 0.3901, 9.2 0.1, 8.9 -0.2, 8.7 -0.5)', 4326),
-                            metadata={
+                            layer_metadata={
                                 "properties": {"route": "N1", "longueur_km": "450"},
                                 "source_info": {"ministere": "Travaux Publics", "annee": "2024"}
                             }
@@ -230,7 +234,7 @@ def init_database():
                             source_format="SHP",
                             status="actif",
                             geom=ST_GeomFromText('POLYGON((11.0 -0.5, 11.5 -0.5, 11.5 0.0, 11.0 0.0, 11.0 -0.5))', 4326),
-                            metadata={
+                            layer_metadata={
                                 "properties": {"superficie_km2": "4970", "statut": "Parc National"},
                                 "source_info": {"organisme": "ANPN", "classification": "UNESCO"}
                             }

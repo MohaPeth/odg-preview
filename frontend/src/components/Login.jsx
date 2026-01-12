@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Lock, Mail } from "lucide-react";
+import { loginUser } from "../services/usersApi";
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState("");
@@ -31,13 +32,14 @@ const Login = ({ onLogin }) => {
 
     try {
       setLoading(true);
-      // Simulation d'une requête API de connexion
-      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const credentials = { email, rememberMe };
-      onLogin(credentials);
+      // Appel API vers le backend pour récupérer le profil utilisateur
+      // Auth simplifiée : seule l'adresse email est utilisée côté backend pour l'instant.
+      const user = await loginUser({ email, password });
+
+      onLogin({ user, rememberMe });
     } catch (err) {
-      setError("Connexion impossible. Veuillez réessayer.");
+      setError(err.message || "Connexion impossible. Veuillez réessayer.");
     } finally {
       setLoading(false);
     }

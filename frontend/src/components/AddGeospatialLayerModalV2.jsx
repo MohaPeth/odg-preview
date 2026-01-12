@@ -275,37 +275,46 @@ const AddGeospatialLayerModalV2 = ({ onLayerAdded, trigger }) => {
 
     setIsUploading(true);
     setError('');
+    setUploadProgress(0);
 
     try {
-      // Simulation du processus d'upload
-      for (let i = 0; i <= 100; i += 10) {
-        setUploadProgress(i);
-        await new Promise(resolve => setTimeout(resolve, 200));
+      // Upload réel vers le backend avec progression
+      const result = await GeospatialLayerService.uploadFile(
+        selectedFile,
+        layerConfig,
+        (progress) => {
+          setUploadProgress(progress);
+        }
+      );
+
+      if (result && result.success) {
+        const newLayer = result.data || {
+          id: Date.now(),
+          name: layerConfig.name,
+          description: layerConfig.description,
+          layer_type: layerConfig.layer_type,
+          status: layerConfig.status,
+          file_name: selectedFile.name,
+          file_size: selectedFile.size,
+          created_at: new Date().toISOString(),
+          is_visible: true,
+          features_count: previewData?.features || 0
+        };
+
+        if (onLayerAdded) {
+          onLayerAdded(newLayer);
+        }
+
+        setSuccess(result.message || 'Couche ajoutée avec succès !');
+        setTimeout(() => {
+          handleClose();
+        }, 2000);
+      } else {
+        throw new Error(result?.error || 'Erreur lors de l\'upload');
       }
-
-      const newLayer = {
-        id: Date.now(),
-        name: layerConfig.name,
-        description: layerConfig.description,
-        layer_type: layerConfig.layer_type,
-        status: layerConfig.status,
-        file_name: selectedFile.name,
-        file_size: selectedFile.size,
-        created_at: new Date().toISOString(),
-        is_visible: true,
-        features_count: previewData?.features || 0
-      };
-
-      if (onLayerAdded) {
-        onLayerAdded(newLayer);
-      }
-
-      setSuccess('Couche ajoutée avec succès !');
-      setTimeout(() => {
-        handleClose();
-      }, 2000);
 
     } catch (err) {
+      console.error('Erreur upload:', err);
       setError('Erreur lors de l\'ajout de la couche : ' + err.message);
     } finally {
       setIsUploading(false);

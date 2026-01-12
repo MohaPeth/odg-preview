@@ -10,14 +10,10 @@ class ProductionConfig:
     """Configuration pour l'environnement de production"""
     
     # Sécurité
-    SECRET_KEY = os.getenv('SECRET_KEY')
-    if not SECRET_KEY:
-        raise ValueError("SECRET_KEY doit être définie en production")
+    SECRET_KEY = os.getenv('SECRET_KEY', 'CHANGE_ME_IN_PRODUCTION')
     
     # Base de données
-    DATABASE_URL = os.getenv('DATABASE_URL')
-    if not DATABASE_URL:
-        raise ValueError("DATABASE_URL doit être définie en production")
+    DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://odg_user:root@localhost:5432/odg_mining')
     
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -55,11 +51,11 @@ class ProductionConfig:
 class DevelopmentConfig:
     """Configuration pour l'environnement de développement"""
     
-    SECRET_KEY = 'dev-secret-key-change-in-production'
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     DEBUG = True
     
-    # Base de données SQLite pour le développement
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///odg_dev.db'
+    # Base de données : PostgreSQL si DATABASE_URL définie, sinon SQLite
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///odg_dev.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Upload de fichiers

@@ -16,9 +16,14 @@ import {
   Download,
   Eye,
   Hash,
-  Coins
+  Coins,
+  Signal,
+  WifiOff,
+  Wallet,
+  Server
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
+import { fetchBlockchainStatus } from '../services/blockchainApi';
 
 // Données simulées pour les graphiques
 const transactionData = [
@@ -155,9 +160,13 @@ const BlockchainDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [statusInfo, setStatusInfo] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [statusError, setStatusError] = useState('');
 
   useEffect(() => {
     fetchData();
+    loadBlockchainStatus();
   }, []);
 
   const fetchData = async () => {
@@ -188,6 +197,20 @@ const BlockchainDashboard = () => {
       setStats(demoStats);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadBlockchainStatus = async () => {
+    try {
+      setStatusLoading(true);
+      setStatusError('');
+      const data = await fetchBlockchainStatus();
+      setStatusInfo(data);
+    } catch (error) {
+      console.error('Erreur statut blockchain:', error);
+      setStatusError(error.message || 'Impossible de récupérer le statut blockchain');
+    } finally {
+      setStatusLoading(false);
     }
   };
 
@@ -234,6 +257,16 @@ const BlockchainDashboard = () => {
     });
   };
 
+  const getDepositLabel = (deposit) => {
+    if (!deposit) return null;
+    return `${deposit.name}${deposit.country ? ` • ${deposit.country}` : ''}`;
+  };
+
+  const getOperatorLabel = (operator) => {
+    if (!operator) return null;
+    return operator.name;
+  };
+
   const truncateHash = (hash) => {
     return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
   };
@@ -259,6 +292,97 @@ const BlockchainDashboard = () => {
             Système de traçabilité et de transparence pour les activités minières
           </p>
         </div>
+
+        {/* Statut de la connexion blockchain */}
+        <Card className="mb-8">
+          <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Signal className="h-5 w-5 text-blue-600" />
+                Statut de la connexion blockchain
+              </CardTitle>
+              <p className="text-sm text-gray-500">
+                Suivi du smart contract ODGTraceability et du wallet configuré
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={loadBlockchainStatus}>
+                Rafraîchir
+              </Button>
+              {statusInfo?.available ? (
+                <Badge className="bg-green-100 text-green-700">Connecté</Badge>
+              ) : (
+                <Badge className="bg-red-100 text-red-700 flex items-center gap-1">
+                  <WifiOff className="h-3 w-3" /> Hors ligne
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {statusLoading ? (
+              <div className="text-sm text-gray-600">Chargement du statut blockchain...</div>
+            ) : statusError ? (
+              <div className="text-sm text-red-600">{statusError}</div>
+            ) : statusInfo ? (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Server className="h-4 w-4 text-blue-600" />
+                    Réseau
+                  </div>
+                  <div className="text-lg font-semibold text-gray-800 mt-1">
+                    {statusInfo.settings?.networkName || statusInfo.network || 'Inconnu'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Chain ID : {statusInfo.chainId || statusInfo.settings?.chainId || '—'}
+                  </div>
+                </div>
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Wallet className="h-4 w-4 text-emerald-600" />
+                    Wallet
+                  </div>
+                  <div className="text-sm font-mono text-gray-800 mt-1 break-all">
+                    {statusInfo.walletAddress || 'Non configuré'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Balance : {statusInfo.walletBalance ?? '—'} {statusInfo.settings?.network?.native_currency || 'ETH'}
+                  </div>
+                </div>
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Link className="h-4 w-4 text-purple-600" />
+                    Smart contract
+                  </div>
+                  <div className="text-sm font-mono text-gray-800 mt-1 break-all">
+                    {statusInfo.contractAddress || statusInfo.settings?.contractAddress || 'Non déployé'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {statusInfo.settings?.explorerUrl
+                      ? 'Voir sur explorer'
+                      : 'URL explorer non configurée'}
+                  </div>
+                </div>
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <TrendingUp className="h-4 w-4 text-indigo-600" />
+                    Dernier bloc
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 mt-1">
+                    {statusInfo.blockNumber ?? '—'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Confirmations requises : {statusInfo.settings?.confirmationBlocks || 1}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-600">
+                Statut indisponible. Vérifiez la configuration blockchain côté backend.
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Statistiques principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -452,6 +576,32 @@ const BlockchainDashboard = () => {
                             <span className="ml-2 font-mono">{truncateHash(tx.toAddress)}</span>
                           </span>
                         </div>
+                        {(tx.deposit || tx.operator) && (
+                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {tx.deposit && (
+                              <div className="bg-blue-50 border border-blue-100 rounded-md p-3 text-sm">
+                                <p className="text-xs uppercase text-blue-700 tracking-wide mb-1">
+                                  Gisement associé
+                                </p>
+                                <p className="font-semibold text-blue-900">{tx.deposit.name}</p>
+                                <p className="text-xs text-blue-700">
+                                  {tx.deposit.type} • {tx.deposit.status}
+                                </p>
+                              </div>
+                            )}
+                            {tx.operator && (
+                              <div className="bg-emerald-50 border border-emerald-100 rounded-md p-3 text-sm">
+                                <p className="text-xs uppercase text-emerald-700 tracking-wide mb-1">
+                                  Opérateur responsable
+                                </p>
+                                <p className="font-semibold text-emerald-900">{tx.operator.name}</p>
+                                <p className="text-xs text-emerald-700">
+                                  {tx.operator.country || 'Pays non renseigné'}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -640,6 +790,46 @@ const BlockchainDashboard = () => {
                   <span className="font-medium text-gray-700">Timestamp:</span>
                   <span className="ml-2">{formatDate(selectedTransaction.timestamp)}</span>
                 </div>
+
+                {(selectedTransaction.deposit || selectedTransaction.operator) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedTransaction.deposit && (
+                      <div className="border rounded-lg p-4 bg-blue-50 border-blue-100">
+                        <div className="text-xs uppercase text-blue-700 tracking-wide mb-2">
+                          Gisement
+                        </div>
+                        <p className="text-base font-semibold text-blue-900">
+                          {selectedTransaction.deposit.name}
+                        </p>
+                        <p className="text-sm text-blue-800">
+                          {selectedTransaction.deposit.type} • {selectedTransaction.deposit.status}
+                        </p>
+                        <p className="text-xs text-blue-700 mt-2">
+                          Coordonnées :{' '}
+                          {selectedTransaction.deposit.coordinates
+                            ? selectedTransaction.deposit.coordinates.join(', ')
+                            : '—'}
+                        </p>
+                      </div>
+                    )}
+                    {selectedTransaction.operator && (
+                      <div className="border rounded-lg p-4 bg-emerald-50 border-emerald-100">
+                        <div className="text-xs uppercase text-emerald-700 tracking-wide mb-2">
+                          Opérateur
+                        </div>
+                        <p className="text-base font-semibold text-emerald-900">
+                          {selectedTransaction.operator.name}
+                        </p>
+                        <p className="text-sm text-emerald-800">
+                          {selectedTransaction.operator.country || 'Pays non renseigné'}
+                        </p>
+                        <p className="text-xs text-emerald-700 mt-2">
+                          Statut : {selectedTransaction.operator.status}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {selectedTransaction.metadata && Object.keys(selectedTransaction.metadata).length > 0 && (
                   <div>

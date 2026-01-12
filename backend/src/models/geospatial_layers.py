@@ -1,10 +1,9 @@
-from flask_sqlalchemy import SQLAlchemy
 from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
 import json
 
-db = SQLAlchemy()
+from src.models.mining_data import db
 
 class GeospatialLayer(db.Model):
     """
@@ -30,23 +29,23 @@ class GeospatialLayer(db.Model):
     is_public = db.Column(db.Boolean, default=True)  # Accessible à tous les utilisateurs
     
     # Configuration des styles (JSON)
-    style_config = db.Column(JSONB, default=lambda: {
-        'color': '#3b82f6',
-        'fillColor': '#3b82f6',
-        'fillOpacity': 0.3,
-        'weight': 2,
-        'opacity': 0.8,
-        'iconUrl': None,
-        'iconSize': [20, 20]
-    })
+    style_config = db.Column(JSONB, nullable=False, default=dict, server_default='{}')
+    
+    def __init__(self, **kwargs):
+        super(GeospatialLayer, self).__init__(**kwargs)
+        if not self.style_config:
+            self.style_config = {
+                'color': '#3b82f6',
+                'fillColor': '#3b82f6',
+                'fillOpacity': 0.3,
+                'weight': 2,
+                'opacity': 0.8,
+                'iconUrl': None,
+                'iconSize': [20, 20]
+            }
     
     # Métadonnées additionnelles (JSON)
-    metadata = db.Column(JSONB, default=lambda: {
-        'properties': {},
-        'attributes': {},
-        'source_info': {},
-        'processing_info': {}
-    })
+    layer_metadata = db.Column(JSONB, nullable=False, default=dict, server_default='{}')
     
     # Géométrie spatiale (PostGIS)
     geom = db.Column(Geometry('GEOMETRY', srid=4326))  # WGS84
@@ -80,7 +79,7 @@ class GeospatialLayer(db.Model):
             'isVisible': self.is_visible,
             'isPublic': self.is_public,
             'styleConfig': self.style_config,
-            'metadata': self.metadata,
+            'metadata': self.layer_metadata,
             'areaKm2': self.area_km2,
             'lengthKm': self.length_km,
             'pointCount': self.point_count,
@@ -95,34 +94,36 @@ class GeospatialLayer(db.Model):
         
         if not self.geom:
             return None
-            
-        # Conversion de la géométrie PostGIS en Shapely puis GeoJSON
-        geom_shape = to_shape(self.geom)
         
-        return {
-            'type': 'Feature',
-            'id': self.id,
-            'geometry': {
-                'type': geom_shape.geom_type,
-                'coordinates': list(geom_shape.coords) if geom_shape.geom_type == 'Point' else 
-                              [list(geom_shape.coords)] if geom_shape.geom_type == 'LineString' else
-                              [list(geom_shape.exterior.coords)] if geom_shape.geom_type == 'Polygon' else
-                              geom_shape.__geo_interface__['coordinates']
-            },
-            'properties': {
+        try:
+            # Conversion de la géométrie PostGIS en Shapely puis GeoJSON
+            geom_shape = to_shape(self.geom)
+            
+            # Utiliser __geo_interface__ pour une conversion robuste
+            geometry = geom_shape.__geo_interface__
+            
+            return {
+                'type': 'Feature',
                 'id': self.id,
-                'name': self.name,
-                'description': self.description,
-                'layerType': self.layer_type,
-                'geometryType': self.geometry_type,
-                'status': self.status,
-                'styleConfig': self.style_config,
-                'metadata': self.metadata,
-                'areaKm2': self.area_km2,
-                'lengthKm': self.length_km,
-                'pointCount': self.point_count
+                'geometry': geometry,
+                'properties': {
+                    'id': self.id,
+                    'name': self.name,
+                    'description': self.description,
+                    'layerType': self.layer_type,
+                    'geometryType': self.geometry_type,
+                    'status': self.status,
+                    'styleConfig': self.style_config,
+                    'metadata': self.layer_metadata,
+                    'areaKm2': self.area_km2,
+                    'lengthKm': self.length_km,
+                    'pointCount': self.point_count
+                }
             }
-        }
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Erreur conversion GeoJSON pour couche {self.id}: {str(e)}")
+            return None
     
     @classmethod
     def get_by_status(cls, status):

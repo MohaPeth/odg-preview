@@ -1,6 +1,11 @@
 from flask import Blueprint, jsonify, request
 from flask_cors import cross_origin
-from src.models.mining_data import db, BlockchainTransaction
+from src.models.mining_data import (
+    db,
+    BlockchainTransaction,
+    MiningDeposit,
+    Operator,
+)
 from datetime import datetime
 import json
 import hashlib
@@ -78,7 +83,15 @@ def create_transaction():
     """Crée une nouvelle transaction blockchain"""
     try:
         data = request.get_json()
-        
+        metadata = data.get('metadata', {}) or {}
+        deposit_id = data.get('depositId')
+        operator_id = data.get('operatorId')
+
+        deposit = MiningDeposit.query.get(deposit_id) if deposit_id else None
+        operator = Operator.query.get(operator_id) if operator_id else None
+
+        metadata = enrich_metadata_with_entities(metadata, deposit, operator)
+
         transaction = BlockchainTransaction(
             transaction_hash=generate_transaction_hash(),
             block_number=random.randint(1000000, 9999999),
@@ -89,7 +102,9 @@ def create_transaction():
             unit=data['unit'],
             timestamp=datetime.utcnow(),
             status='pending',
-            metadata_json=json.dumps(data.get('metadata', {}))
+            metadata_json=json.dumps(metadata),
+            deposit_id=deposit.id if deposit else None,
+            operator_id=operator.id if operator else None,
         )
         
         db.session.add(transaction)
@@ -112,8 +127,40 @@ def confirm_transaction(transaction_id):
     """Confirme une transaction"""
     try:
         transaction = BlockchainTransaction.query.get_or_404(transaction_id)
+        payload = request.get_json(silent=True) or {}
+
         transaction.status = 'confirmed'
         transaction.block_number = random.randint(1000000, 9999999)
+
+        deposit_id = payload.get('depositId')
+        operator_id = payload.get('operatorId')
+        metadata_updates = payload.get('metadata', {})
+
+        deposit = (
+            MiningDeposit.query.get(deposit_id)
+            if deposit_id
+            else transaction.deposit
+        )
+        operator = (
+            Operator.query.get(operator_id)
+            if operator_id
+            else transaction.operator
+        )
+
+        transaction.deposit = deposit
+        transaction.operator = operator
+
+        current_metadata = (
+            json.loads(transaction.metadata_json)
+            if transaction.metadata_json
+            else {}
+        )
+        current_metadata.update(metadata_updates or {})
+        current_metadata = enrich_metadata_with_entities(
+            current_metadata, deposit, operator
+        )
+
+        transaction.metadata_json = json.dumps(current_metadata)
         
         db.session.commit()
         
@@ -133,25 +180,28 @@ def confirm_transaction(transaction_id):
 def get_certificates():
     """Récupère les certificats de traçabilité"""
     try:
-        # Simulation de certificats basés sur les transactions
         transactions = BlockchainTransaction.query.filter_by(status='confirmed').all()
         
         certificates = []
         for tx in transactions:
             metadata = json.loads(tx.metadata_json) if tx.metadata_json else {}
-            
+            deposit = tx.deposit
+            operator = tx.operator
+
             certificate = {
                 'id': f"CERT-{tx.id:06d}",
                 'transactionHash': tx.transaction_hash,
                 'materialType': tx.material_type,
                 'quantity': tx.quantity,
                 'unit': tx.unit,
-                'origin': metadata.get('origin', 'Unknown'),
-                'destination': metadata.get('destination', 'Unknown'),
+                'origin': metadata.get('origin') or (deposit.name if deposit else 'Unknown'),
+                'destination': metadata.get('destination') or (operator.name if operator else 'Unknown'),
                 'certificationDate': tx.timestamp.isoformat(),
                 'status': 'Valid',
                 'qrCode': f"https://blockchain.odg.com/cert/CERT-{tx.id:06d}",
-                'metadata': metadata
+                'metadata': metadata,
+                'deposit': deposit.to_dict() if deposit else None,
+                'operator': operator.to_dict() if operator else None,
             }
             certificates.append(certificate)
         

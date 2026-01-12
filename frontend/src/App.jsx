@@ -4,38 +4,39 @@ import PartnerDashboard from "./components/PartnerDashboard";
 import Login from "./components/Login";
 import "./App.css";
 
+const STORAGE_KEY = "odg_user";
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem("odg_mock_user") ? true : false;
+    return localStorage.getItem(STORAGE_KEY) ? true : false;
   });
 
   const [userProfile, setUserProfile] = useState(() => {
-    const stored = localStorage.getItem("odg_mock_user");
+    const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : null;
   });
 
-  const handleLogin = (credentials) => {
-    // Simulation de différents types d'utilisateurs
-    let profile = { ...credentials };
-    
-    // Détection du type d'utilisateur basé sur l'email
-    if (credentials.email.includes("partenaire") || credentials.email.includes("partner")) {
-      profile.role = "partner";
-      profile.name = "Partenaire Minier SA";
-    } else {
-      profile.role = "admin";
-      profile.name = "Administrateur ODG";
-    }
+  const handleLogin = ({ user, rememberMe }) => {
+    if (!user) return;
+
+    const profile = {
+      id: user.id,
+      name: user.name || user.username,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      operatorId: user.operator_id ?? user.operatorId ?? null,
+    };
 
     setUserProfile(profile);
-    if (credentials.rememberMe) {
-      localStorage.setItem("odg_mock_user", JSON.stringify(profile));
+    if (rememberMe) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
     }
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("odg_mock_user");
+    localStorage.removeItem(STORAGE_KEY);
     setUserProfile(null);
     setIsAuthenticated(false);
   };

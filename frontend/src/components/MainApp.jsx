@@ -1,18 +1,84 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Map, Shield, Home, BarChart3, Settings, Menu, X, ChevronLeft, ChevronRight, Layers, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Map, Shield, Home, BarChart3, Settings, Menu, X, ChevronLeft, ChevronRight, Layers, Users, Handshake, Building2, UserCheck, Clock } from "lucide-react";
+import { fetchOperators } from "../services/operatorsApi";
+import { getUsers } from "../services/usersApi";
 import WebGISMap from "./WebGISMap";
 import BlockchainDashboard from "./BlockchainDashboard";
 import LayersWorkspace from "./LayersWorkspace";
 import SettingsWorkspace from "./SettingsWorkspace";
 import UserManagement from "./UserManagement";
+import PartnersManagement from "./PartnersManagement";
 
 const MainApp = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Données opérateurs pour l'onboarding
+  const [operators, setOperators] = useState([]);
+  const [operatorsLoading, setOperatorsLoading] = useState(true);
+  const [operatorsError, setOperatorsError] = useState("");
+
+  // Données partenaires pour l'onboarding
+  const [partners, setPartners] = useState([]);
+  const [partnersLoading, setPartnersLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadOperators = async () => {
+      try {
+        setOperatorsLoading(true);
+        setOperatorsError("");
+        const data = await fetchOperators();
+        if (isMounted) {
+          setOperators(data);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error("Erreur chargement opérateurs:", error);
+          setOperatorsError(error.message || "Erreur lors du chargement des opérateurs");
+        }
+      } finally {
+        if (isMounted) {
+          setOperatorsLoading(false);
+        }
+      }
+    };
+
+    const loadPartners = async () => {
+      try {
+        setPartnersLoading(true);
+        const usersData = await getUsers();
+        if (isMounted) {
+          // Filtrer uniquement les partenaires
+          const partnersOnly = (Array.isArray(usersData) ? usersData : []).filter(
+            (user) => user.role === "partner"
+          );
+          setPartners(partnersOnly);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error("Erreur chargement partenaires:", error);
+        }
+      } finally {
+        if (isMounted) {
+          setPartnersLoading(false);
+        }
+      }
+    };
+
+    loadOperators();
+    loadPartners();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const navigation = [
     { id: "home", name: "Accueil", icon: Home },
@@ -20,6 +86,7 @@ const MainApp = () => {
     { id: "layers", name: "Couches", icon: Layers },
     { id: "blockchain", name: "Blockchain", icon: Shield },
     { id: "analytics", name: "Analyses", icon: BarChart3 },
+    { id: "partners", name: "Partenaires", icon: Handshake },
     { id: "users", name: "Utilisateurs", icon: Users },
     { id: "settings", name: "Paramètres", icon: Settings },
   ];
@@ -129,35 +196,174 @@ const MainApp = () => {
         </Card>
       </div>
 
-      {/* Statistiques rapides */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600 mb-2">3</div>
-            <div className="text-sm text-gray-600">Gisements Actifs</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-green-600 mb-2">2</div>
-            <div className="text-sm text-gray-600">Transactions Confirmées</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-purple-600 mb-2">
-              15.7 kg
+      {/* Opérateurs - aperçu onboarding */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Opérateurs miniers</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {operatorsLoading ? (
+            <div className="text-sm text-gray-600">Chargement des opérateurs...</div>
+          ) : operatorsError ? (
+            <div className="text-sm text-red-600">{operatorsError}</div>
+          ) : operators.length === 0 ? (
+            <div className="text-sm text-gray-600">
+              Aucun opérateur n'est encore configuré. Vous pourrez en ajouter dès que la base sera alimentée.
             </div>
-            <div className="text-sm text-gray-600">Or Tracé</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="text-2xl font-bold text-orange-600 mb-2">100%</div>
-            <div className="text-sm text-gray-600">Transparence</div>
-          </CardContent>
-        </Card>
-      </div>
+          ) : (
+            <div className="space-y-3">
+              {operators.slice(0, 3).map((op) => (
+                <div key={op.id} className="flex items-center justify-between border rounded-md px-3 py-2">
+                  <div className="flex items-center space-x-3">
+                    {op.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={op.logoUrl}
+                        alt={op.name}
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-semibold text-blue-600">
+                        {op.name?.charAt(0) || "O"}
+                      </div>
+                    )}
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{op.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {op.country || "Pays non renseigné"}  b7 {op.status || "Statut inconnu"}
+                      </div>
+                      {op.commodities && op.commodities.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {op.commodities.slice(0, 3).map((c, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700"
+                            >
+                              {c.label || c.code}
+                            </span>
+                          ))}
+                          {op.commodities.length > 3 && (
+                            <span className="text-[10px] text-gray-500">+{op.commodities.length - 3} autres</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500">Permis</div>
+                    <div className="text-sm font-semibold text-gray-900">{op.permitsCount ?? 0}</div>
+                  </div>
+                </div>
+              ))}
+              {operators.length > 3 && (
+                <div className="text-xs text-gray-500">
+                  Et {operators.length - 3} autres opérateurs configurés.
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Section Partenaires - Résumé */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center space-x-2">
+            <Handshake className="h-5 w-5 text-purple-600" />
+            <span>Partenaires</span>
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveTab("partners")}
+          >
+            Voir tout
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {partnersLoading ? (
+            <div className="text-sm text-gray-600">Chargement des partenaires...</div>
+          ) : partners.length === 0 ? (
+            <div className="text-sm text-gray-600">
+              Aucun partenaire enregistré pour le moment.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Stats rapides partenaires */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-3 bg-purple-50 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600">{partners.length}</div>
+                  <div className="text-xs text-gray-600">Total</div>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    {partners.filter(p => p.status === "active").length}
+                  </div>
+                  <div className="text-xs text-gray-600">Actifs</div>
+                </div>
+                <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {partners.filter(p => p.status === "pending").length}
+                  </div>
+                  <div className="text-xs text-gray-600">En attente</div>
+                </div>
+              </div>
+
+              {/* Liste des 3 derniers partenaires */}
+              <div className="space-y-2">
+                {partners.slice(0, 3).map((partner) => (
+                  <div
+                    key={partner.id}
+                    className="flex items-center justify-between border rounded-md px-3 py-2 hover:bg-gray-50"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-sm font-semibold text-purple-600">
+                        {(partner.name || partner.username || "P").charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">{partner.name || partner.username}</div>
+                        <div className="text-xs text-gray-500">{partner.email}</div>
+                      </div>
+                    </div>
+                    <Badge
+                      className={
+                        partner.status === "active"
+                          ? "bg-green-100 text-green-800"
+                          : partner.status === "pending"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-800"
+                      }
+                    >
+                      {partner.status === "active" && <UserCheck className="h-3 w-3 mr-1" />}
+                      {partner.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
+                      {partner.status === "active" ? "Actif" : partner.status === "pending" ? "En attente" : partner.status}
+                    </Badge>
+                  </div>
+                ))}
+                {partners.length > 3 && (
+                  <div className="text-xs text-gray-500 text-center pt-2">
+                    Et {partners.length - 3} autre(s) partenaire(s)
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Statistiques globales (à connecter aux données réelles) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Statistiques globales</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-600">
+            Les indicateurs chiffrés (gisements actifs, transactions confirmées, volumes tracés,
+            taux de transparence, etc.) seront connectés prochainement aux données réelles de la
+            base et de la blockchain. Cette section sert pour l’instant de placeholder.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* À propos d'ODG */}
       <Card>
@@ -320,6 +526,7 @@ const MainApp = () => {
             </div>
           )}
           {activeTab === "users" && <UserManagement />}
+          {activeTab === "partners" && <PartnersManagement />}
           {activeTab === "settings" && <SettingsWorkspace />}
         </main>
       </div>
