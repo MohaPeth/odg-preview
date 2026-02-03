@@ -1,0 +1,120 @@
+{
+  "type": "FeatureCollection",
+  "name": "Gisements Miniers Gabon - Test",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Gisement Aurifère Komo",
+        "type": "Or",
+        "company": "ODG Mining",
+        "status": "actif",
+        "estimated_quantity": "2.5 tonnes",
+        "description": "Gisement aurifère situé dans la province de l'Estuaire, près de Libreville. Exploitation active depuis 2020.",
+        "discovery_date": "2018-03-15",
+        "grade": "8.5 g/t",
+        "reserves": "295000 oz"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [9.4536, 0.3901]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mine d'Or Belinga Nord",
+        "type": "Or",
+        "company": "Belinga Mining Corp",
+        "status": "en_développement",
+        "estimated_quantity": "1.8 tonnes",
+        "description": "Nouveau gisement en phase de développement dans la région de Belinga.",
+        "discovery_date": "2022-07-20",
+        "grade": "6.2 g/t",
+        "reserves": "185000 oz"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.2156, 1.0847]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Gisement Diamantifère Mitzic",
+        "type": "Diamant",
+        "company": "Diamond Gabon SA",
+        "status": "exploration",
+        "estimated_quantity": "150000 carats",
+        "description": "Gisement de diamants alluviaux dans la région de Mitzic, province du Woleu-Ntem.",
+        "discovery_date": "2021-11-08",
+        "grade": "0.85 ct/m³",
+        "reserves": "150000 carats"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [11.5547, 0.7833]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mine de Fer Bélinga",
+        "type": "Fer",
+        "company": "Bélinga Iron Ore",
+        "status": "terminé",
+        "estimated_quantity": "1.2 milliards tonnes",
+        "description": "Ancien projet de mine de fer dans le nord-est du Gabon. Projet suspendu.",
+        "discovery_date": "1955-01-01",
+        "grade": "65% Fe",
+        "reserves": "1200000000 tonnes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.2667, 1.1000]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Gisement Manganèse Moanda",
+        "type": "Manganèse",
+        "company": "COMILOG",
+        "status": "actif",
+        "estimated_quantity": "200 millions tonnes",
+        "description": "Plus grand gisement de manganèse au monde, exploité depuis 1962.",
+        "discovery_date": "1957-01-01",
+        "grade": "46% Mn",
+        "reserves": "200000000 tonnes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.2167, -1.5667]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Prospect Aurifère Etéké",
+        "type": "Or",
+        "company": "Etéké Gold Mining",
+        "status": "exploration",
+        "estimated_quantity": "0.8 tonnes",
+        "description": "Prospect aurifère en phase d'exploration dans la province de la Ngounié.",
+        "discovery_date": "2023-02-14",
+        "grade": "4.2 g/t",
+        "reserves": "25000 oz"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [10.7500, -1.8333]
+      }
+    }
+  ]
+}

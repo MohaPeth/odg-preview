@@ -1,0 +1,11 @@
+name,latitude,longitude,type,status,description,length_km,capacity
+Route Libreville-Port-Gentil,0.3901,9.4536,Route,actif,Route principale reliant Libreville à Port-Gentil,170,2 voies
+Chemin de Fer Transgabonais - Tronçon 1,0.3901,9.4536,Chemin de fer,actif,Premier tronçon du chemin de fer transgabonais,85,1000 tonnes/jour
+Route Franceville-Moanda,1.6333,13.5833,Route,actif,Route d'accès aux mines de manganèse,95,1 voie
+Pipeline Rabi-Gamba,1.8667,9.8667,Pipeline,actif,Pipeline de transport de pétrole brut,45,50000 barils/jour
+Route Oyem-Bitam,1.5833,11.5167,Route,en_développement,Route en construction vers la frontière camerounaise,78,2 voies
+Chemin de Fer Transgabonais - Tronçon 2,0.7833,11.5547,Chemin de fer,actif,Deuxième tronçon vers Franceville,120,1000 tonnes/jour
+Route Lambaréné-Mouila,0.7000,10.2333,Route,actif,Route secondaire en zone forestière,65,1 voie
+Pipeline Gaz Naturel,0.3901,9.4536,Pipeline,en_développement,Nouveau pipeline de gaz naturel,125,25 millions m³/jour
+Route Tchibanga-Mayumba,2.8500,11.4167,Route,terminé,Ancienne route côtière réhabilitée,89,1 voie
+Piste d'Atterrissage Mitzic,0.7833,11.5547,Aéroport,actif,Piste pour transport minier,1.2,Avions légers

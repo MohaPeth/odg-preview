@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Import Dépôts Miniers</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .upload-form {
+            margin: 20px 0;
+        }
+        .file-input {
+            margin: 15px 0;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #4CAF50;
+            border-radius: 4px;
+            width: 100%;
+            cursor: pointer;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Test Import Dépôts Miniers</h1>
+        
+        <div class="info">
+            <strong>ℹ️ Instructions :</strong>
+            <ul>
+                <li>Sélectionnez un fichier GeoJSON (format .json ou .geojson)</li>
+                <li>Le fichier doit contenir des Points (dépôts miniers)</li>
+                <li>Les dépôts existants avec le même nom seront mis à jour</li>
+            </ul>
+        </div>
+
+        <form class="upload-form" id="uploadForm">
+            <div class="file-input">
+                <label for="fileInput"><strong>Fichier GeoJSON :</strong></label>
+                <input type="file" id="fileInput" accept=".json,.geojson" required>
+            </div>
+            
+            <button type="submit" id="submitBtn">📤 Importer les dépôts</button>
+        </form>
+
+        <div class="loader" id="loader"></div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('fileInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const loader = document.getElementById('loader');
+        const result = document.getElementById('result');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const file = fileInput.files[0];
+            if (!file) {
+                showResult('Veuillez sélectionner un fichier', 'error');
+                return;
+            }
+
+            // Vérifier l'extension
+            const fileName = file.name.toLowerCase();
+            if (!fileName.endsWith('.json') && !fileName.endsWith('.geojson')) {
+                showResult('Format invalide. Utilisez un fichier .json ou .geojson', 'error');
+                return;
+            }
+
+            // Préparer le formulaire
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Afficher le loader
+            submitBtn.disabled = true;
+            loader.style.display = 'block';
+            result.style.display = 'none';
+
+            try {
+                // Envoyer la requête
+                const response = await fetch('http://localhost:5000/api/mining/import/deposits', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    let message = `✅ ${data.message}`;
+                    if (data.imported_count) {
+                        message += `<br><strong>${data.imported_count} dépôt(s) importé(s)</strong>`;
+                    }
+                    if (data.errors && data.errors.length > 0) {
+                        message += '<br><br><strong>Erreurs :</strong><ul>';
+                        data.errors.forEach(err => {
+                            message += `<li>${err}</li>`;
+                        });
+                        message += '</ul>';
+                    }
+                    showResult(message, 'success');
+                } else {
+                    showResult(`❌ Erreur : ${data.message || 'Erreur inconnue'}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Erreur de connexion : ${error.message}`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                loader.style.display = 'none';
+            }
+        });
+
+        function showResult(message, type) {
+            result.innerHTML = message;
+            result.className = 'result ' + type;
+            result.style.display = 'block';
+        }
+
+        // Afficher le nom du fichier sélectionné
+        fileInput.addEventListener('change', (e) => {
+            const fileName = e.target.files[0]?.name;
+            if (fileName) {
+                console.log('Fichier sélectionné :', fileName);
+            }
+        });
+    </script>
+</body>
+</html>
