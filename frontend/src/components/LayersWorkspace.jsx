@@ -67,7 +67,7 @@ const LayersWorkspace = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <div className="flex items-center space-x-3">

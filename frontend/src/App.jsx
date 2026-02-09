@@ -5,15 +5,29 @@ import Login from "./components/Login";
 import { getToken, setToken, clearAuth } from "./services/authUtils";
 import "./App.css";
 
+// Mode démo : afficher le frontend sans backend (pas de login requis). Remettre à false pour exiger la connexion.
+const DEMO_NO_AUTH = true;
+
 const STORAGE_KEY = "odg_user";
+
+const MOCK_PROFILE = {
+  id: 1,
+  name: "Admin (démo)",
+  email: "admin@odg.ga",
+  role: "admin",
+  status: "active",
+  operatorId: null,
+};
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (DEMO_NO_AUTH) return true;
     const hasProfile = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
     return !!(getToken() && hasProfile);
   });
 
   const [userProfile, setUserProfile] = useState(() => {
+    if (DEMO_NO_AUTH) return MOCK_PROFILE;
     const stored = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : null;
   });

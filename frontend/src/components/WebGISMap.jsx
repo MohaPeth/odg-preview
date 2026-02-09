@@ -377,7 +377,7 @@ const WebGISMap = () => {
   };
 
   return (
-    <div className="h-screen flex relative">
+    <div className="h-screen flex relative overflow-hidden min-w-0">
       {/* Bouton toggle mobile */}
       <Button
         variant="outline"
@@ -396,14 +396,14 @@ const WebGISMap = () => {
         />
       )}
 
-      {/* Panneau latéral */}
+      {/* Panneau latéral – max-w-full et min-w-0 pour éviter débordement horizontal */}
       <div className={`
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-80'}
-        fixed lg:relative top-0 left-0 h-full w-80 bg-white shadow-lg overflow-y-auto z-40
+        fixed lg:relative top-0 left-0 h-full w-80 max-w-[85vw] lg:max-w-none bg-white shadow-lg overflow-y-auto overflow-x-hidden z-40 shrink-0
         transition-all duration-300 ease-in-out
       `}>
-        <div className="p-4">
+        <div className="p-4 min-w-0">
           {/* En-tête avec bouton collapse desktop */}
           <div className="flex items-center justify-between mb-4">
             <h2 className={`text-xl font-bold flex items-center ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
@@ -532,30 +532,32 @@ const WebGISMap = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="layers" className="space-y-4">
+            <TabsContent value="layers" className="space-y-4 min-w-0">
               {/* Boutons d'action pour couches géospatiales */}
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap gap-2">
                 <AddGeospatialLayerModalV2 
                   onLayerAdded={handleLayerAdded}
                   trigger={
-                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700">
-                      <Upload className="mr-2 h-4 w-4" />
-                      Importer une couche
+                    <Button className="flex-1 min-w-0 bg-blue-600 hover:bg-blue-700">
+                      <Upload className="mr-2 h-4 w-4 shrink-0" />
+                      <span className="truncate">Importer une couche</span>
                     </Button>
                   }
                 />
               </div>
 
-              {/* Tableau de gestion des couches géospatiales */}
+              {/* Tableau de gestion des couches géospatiales – scroll horizontal si besoin */}
+              <div className="min-w-0 overflow-x-auto">
               <ErrorBoundary onReset={() => window.location.reload()}>
                 <LayersManagementTable
                   onLayerToggle={handleLayerToggle}
                   onLayerEdit={handleLayerEdit}
                   onLayerDelete={handleLayerDelete}
                   selectedLayers={geospatialLayers.filter(layer => layer.is_visible).map(layer => layer.id)}
-                  className="max-h-96 overflow-y-auto"
+                  className="max-h-96 overflow-y-auto min-w-0"
                 />
               </ErrorBoundary>
+              </div>
             </TabsContent>
             </Tabs>
           )}
@@ -607,8 +609,8 @@ const WebGISMap = () => {
         </div>
       </div>
 
-      {/* Carte principale */}
-      <div className="flex-1 relative">
+      {/* Carte principale – min-w-0 pour que flex ne déborde pas */}
+      <div className="flex-1 min-w-0 relative">
         <MapContainer
           center={[0, 11.5]}
           zoom={7}

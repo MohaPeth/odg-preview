@@ -40,15 +40,17 @@ import {
   Mail,
   Building2,
   Calendar,
-  TrendingUp,
   RefreshCw,
   UserCheck,
   UserX,
   Clock,
   UserPlus,
+  Edit,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 
-import { getUsers, createUser } from "../services/usersApi";
+import { getUsers, createUser, updateUser, deleteUser } from "../services/usersApi";
 import { fetchOperators } from "../services/operatorsApi";
 
 const PartnersManagement = () => {
@@ -59,8 +61,11 @@ const PartnersManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPartner, setSelectedPartner] = useState(null);
+  const [editingPartner, setEditingPartner] = useState(null);
+  const [deleteConfirmPartner, setDeleteConfirmPartner] = useState(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [newPartner, setNewPartner] = useState({
     name: "",
     email: "",
@@ -160,6 +165,7 @@ const PartnersManagement = () => {
 
   const handleCreatePartner = async () => {
     if (!newPartner.name || !newPartner.email) {
+      toast.error("Nom et email sont obligatoires");
       return;
     }
     try {
@@ -182,11 +188,61 @@ const PartnersManagement = () => {
 
       setNewPartner({ name: "", email: "", status: "active", operatorId: "" });
       setIsCreateOpen(false);
+      toast.success("Partenaire créé avec succès");
     } catch (err) {
-      // Erreur création partenaire
       setError("Erreur lors de la création du partenaire");
+      toast.error(err?.message || "Erreur lors de la création du partenaire");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleSavePartner = async () => {
+    if (!editingPartner?.id || !editingPartner.name || !editingPartner.email) {
+      toast.error("Nom et email sont obligatoires");
+      return;
+    }
+    try {
+      setSaving(true);
+      setError("");
+
+      const payload = {
+        name: editingPartner.name,
+        email: editingPartner.email,
+        role: "partner",
+        status: editingPartner.status || "active",
+      };
+
+      if (editingPartner.operatorId !== undefined && editingPartner.operatorId !== null && editingPartner.operatorId !== "") {
+        payload.operator_id = parseInt(editingPartner.operatorId, 10);
+      } else {
+        payload.operator_id = null;
+      }
+
+      await updateUser(editingPartner.id, payload);
+      await reloadPartners();
+
+      setEditingPartner(null);
+      toast.success("Partenaire mis à jour");
+    } catch (err) {
+      setError("Erreur lors de la mise à jour du partenaire");
+      toast.error(err?.message || "Erreur lors de la mise à jour");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeletePartner = async (partner) => {
+    if (!partner?.id) return;
+    try {
+      setError("");
+      await deleteUser(partner.id);
+      await reloadPartners();
+      setDeleteConfirmPartner(null);
+      toast.success("Partenaire supprimé");
+    } catch (err) {
+      setError("Erreur lors de la suppression du partenaire");
+      toast.error(err?.message || "Erreur lors de la suppression");
     }
   };
 
@@ -246,7 +302,7 @@ const PartnersManagement = () => {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 sm:p-6">
       {/* En-tête */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center space-x-3">
@@ -344,6 +400,110 @@ const PartnersManagement = () => {
         </Dialog>
       </div>
 
+      {/* Dialog modification partenaire */}
+      <Dialog open={!!editingPartner} onOpenChange={(open) => !open && setEditingPartner(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Modifier le partenaire</DialogTitle>
+            <DialogDescription>
+              Modifiez les informations du partenaire
+            </DialogDescription>
+          </DialogHeader>
+          {editingPartner && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Nom du partenaire</label>
+                  <Input
+                    value={editingPartner.name || editingPartner.username || ""}
+                    onChange={(e) => setEditingPartner({ ...editingPartner, name: e.target.value })}
+                    placeholder="Nom / Raison sociale"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email</label>
+                  <Input
+                    type="email"
+                    value={editingPartner.email || ""}
+                    onChange={(e) => setEditingPartner({ ...editingPartner, email: e.target.value })}
+                    placeholder="contact@partenaire.com"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Statut</label>
+                  <Select
+                    value={editingPartner.status || "active"}
+                    onValueChange={(value) => setEditingPartner({ ...editingPartner, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Actif</SelectItem>
+                      <SelectItem value="pending">En attente</SelectItem>
+                      <SelectItem value="suspended">Suspendu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Opérateur associé (optionnel)</label>
+                  <Select
+                    value={editingPartner.operatorId !== undefined && editingPartner.operatorId !== null && editingPartner.operatorId !== "" ? String(editingPartner.operatorId) : ""}
+                    onValueChange={(value) => setEditingPartner({ ...editingPartner, operatorId: value || "" })}
+                    disabled={operators.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={operators.length === 0 ? "Aucun opérateur" : "Sélectionner"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Aucun</SelectItem>
+                      {operators.map((op) => (
+                        <SelectItem key={op.id} value={String(op.id)}>
+                          {op.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingPartner(null)}>
+              Annuler
+            </Button>
+            <Button onClick={handleSavePartner} disabled={saving || !editingPartner?.name || !editingPartner?.email}>
+              {saving ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog confirmation suppression partenaire */}
+      <Dialog open={!!deleteConfirmPartner} onOpenChange={(open) => !open && setDeleteConfirmPartner(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Supprimer le partenaire</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer &quot;{deleteConfirmPartner?.name || deleteConfirmPartner?.username || "ce partenaire"}&quot; ? Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmPartner(null)}>
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => handleDeletePartner(deleteConfirmPartner)}
+            >
+              Supprimer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -435,7 +595,8 @@ const PartnersManagement = () => {
             {filteredPartners.length} partenaire(s) trouvé(s)
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
+          <div className="overflow-x-auto">
           {filteredPartners.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               {partners.length === 0
@@ -521,13 +682,33 @@ const PartnersManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedPartner(partner)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedPartner(partner)}
+                            title="Voir les détails"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingPartner({ ...partner, operatorId: partner.operator_id ?? partner.operatorId ?? "" })}
+                            title="Modifier"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteConfirmPartner(partner)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -535,6 +716,7 @@ const PartnersManagement = () => {
               </TableBody>
             </Table>
           )}
+          </div>
         </CardContent>
       </Card>
 

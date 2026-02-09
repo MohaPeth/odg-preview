@@ -48,9 +48,9 @@ import {
   RefreshCw,
   Maximize2,
   Minimize2,
-  X,
   Plus
 } from 'lucide-react';
+import { toast } from 'sonner';
 import AddGeospatialLayerModalV2 from './AddGeospatialLayerModalV2';
 
 const LayersManagementTable = ({ 
@@ -242,28 +242,21 @@ const LayersManagementTable = ({
 
   // Basculer la visibilité d'une couche
   const handleToggleVisibility = useCallback(async (layer) => {
-    // Vérifier que la couche a des données géographiques
-    if (!layer.geojson && !layer.geometry) {
-      setError("Impossible d'afficher cette couche : données géographiques manquantes");
-      return;
+    const newVisibilityState = !layer.is_visible;
+
+    // Mise à jour optimiste de l'état local (avant la requête)
+    setLayers(prevLayers =>
+      prevLayers.map(l =>
+        l.id === layer.id ? { ...l, is_visible: newVisibilityState } : l
+      )
+    );
+
+    // Notifier le parent pour la carte (même sans geojson, le parent peut gérer)
+    if (onLayerToggle) {
+      onLayerToggle(layer.id, newVisibilityState);
     }
 
     try {
-      const newVisibilityState = !layer.is_visible;
-      
-      // Mise à jour optimiste de l'état local (avant la requête)
-      setLayers(prevLayers => 
-        prevLayers.map(l => 
-          l.id === layer.id ? { ...l, is_visible: newVisibilityState } : l
-        )
-      );
-      
-      // Notifier le parent immédiatement pour mettre à jour la carte
-      if (onLayerToggle) {
-        onLayerToggle(layer.id, newVisibilityState);
-      }
-      
-      // Envoyer la requête au serveur en arrière-plan
       const response = await fetch(`/api/geospatial/layers/${layer.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -272,17 +265,20 @@ const LayersManagementTable = ({
 
       const result = await response.json();
       if (!result.success) {
-        // En cas d'erreur, revenir à l'état précédent
-        setLayers(prevLayers => 
-          prevLayers.map(l => 
-            l.id === layer.id ? { ...l, is_visible: !newVisibilityState } : l
-          )
-        );
-        throw new Error(result.error);
+        throw new Error(result.error || 'Erreur serveur');
       }
     } catch (err) {
-      setError(`Erreur lors de la mise à jour: ${err.message}`);
-      // Recharger depuis le serveur en cas d'erreur pour être sûr de l'état
+      // En cas d'erreur (ex. mode démo), revenir à l'état précédent et informer
+      setLayers(prevLayers =>
+        prevLayers.map(l =>
+          l.id === layer.id ? { ...l, is_visible: !newVisibilityState } : l
+        )
+      );
+      if (onLayerToggle) {
+        onLayerToggle(layer.id, !newVisibilityState);
+      }
+      setError(`Visibilité: ${err.message}`);
+      toast.error(`Impossible de mettre à jour la visibilité: ${err.message}`);
       fetchLayers(false);
     }
   }, [onLayerToggle, fetchLayers]);
@@ -313,31 +309,48 @@ const LayersManagementTable = ({
     }
   }, [fetchLayers, onLayerDelete]);
 
-  // Export d'une couche
+  // Export d'une couche (avec fallback minimal en mode démo si l'API échoue)
   const handleExport = useCallback(async (layer, format) => {
+    const fileName = `${(layer.name || 'couche').replace(/[^a-z0-9-_]/gi, '_')}.${format}`;
+
+    const downloadBlob = (data, successMsg) => {
+      const blob = new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], {
+        type: 'application/json'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(successMsg);
+    };
+
     try {
       const response = await fetch(`/api/geospatial/layers/${layer.id}/export/${format}`);
-      
+
       if (response.ok) {
         const data = await response.json();
-        
-        // Télécharger le fichier
-        const blob = new Blob([JSON.stringify(data, null, 2)], { 
-          type: 'application/json' 
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${layer.name}.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        downloadBlob(data, `Export ${format} téléchargé`);
       } else {
-        throw new Error('Erreur lors de l\'export');
+        throw new Error(response.status === 404 ? 'Export non disponible' : 'Erreur serveur');
       }
     } catch (err) {
-      setError(`Erreur export: ${err.message}`);
+      // Fallback démo : export minimal (métadonnées en GeoJSON)
+      const fallback = {
+        type: 'FeatureCollection',
+        features: [],
+        properties: {
+          name: layer.name,
+          description: layer.description || '',
+          layer_type: layer.layer_type || layer.layerType,
+          status: layer.status,
+          export_date: new Date().toISOString()
+        }
+      };
+      downloadBlob(fallback, `Export ${format} (données minimales)`);
     }
   }, []);
 
@@ -773,27 +786,17 @@ const LayersManagementTable = ({
         </DialogContent>
       </Dialog>
 
-      {/* Modal plein écran amélioré */}
+      {/* Modal plein écran – responsif (min-h-0 pour scroll correct), fermeture par X natif */}
       <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] w-full h-full">
-          <div className="flex flex-col h-full">
-            {/* En-tête simplifié */}
-            <div className="flex items-center justify-between pb-4 border-b">
-              <div>
-                <h2 className="text-xl font-bold">Gestion des Couches Géospatiales</h2>
-                <p className="text-sm text-gray-600">{layers.length} couches disponibles</p>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsExpanded(false)}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Fermer
-              </Button>
+        <DialogContent className="max-w-[95vw] sm:max-w-[90vw] max-h-[90vh] w-full h-full flex flex-col p-4 sm:p-6">
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="pb-4 border-b flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold">Gestion des Couches Géospatiales</h2>
+              <p className="text-sm text-gray-600">{layers.length} couches disponibles</p>
             </div>
 
-            {/* Contenu du tableau */}
-            <div className="flex-1 overflow-auto mt-4">
+            {/* Contenu scrollable (min-h-0 pour flex + overflow) */}
+            <div className="flex-1 min-h-0 overflow-auto mt-4">
               {layers.length === 0 ? (
                 <div className="text-center py-12">
                   <Database className="h-12 w-4 text-gray-300 mx-auto mb-4" />
@@ -873,13 +876,13 @@ const LayersManagementTable = ({
                         </div>
                         
                         <div className="md:ml-4 flex-shrink-0">
-                          <DropdownMenu>
+                          <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm">
+                              <Button variant="outline" size="sm" type="button">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="z-[10000]">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuItem onClick={() => onLayerEdit && onLayerEdit(layer)}>
                                 <Edit className="mr-2 h-4 w-4" />
@@ -894,8 +897,11 @@ const LayersManagementTable = ({
                                 Exporter KML
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => setDeleteDialog({ open: true, layer })}
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setIsExpanded(false);
+                                  setDeleteDialog({ open: true, layer });
+                                }}
                                 className="text-red-600"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />

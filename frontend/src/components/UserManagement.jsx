@@ -25,6 +25,7 @@ import {
   Search,
   Filter,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { getUsers, createUser, updateUser, deleteUser } from "../services/usersApi";
 import { fetchOperators } from "../services/operatorsApi";
@@ -219,11 +220,12 @@ const UserManagement = () => {
       const mapped = mapApiUserToUiUser(created);
 
       setUsers([...users, mapped]);
-      setNewUser({ name: "", email: "", role: "partner", deposits: [], shares: {} });
+      setNewUser({ name: "", email: "", role: "partner", deposits: [], shares: {}, operatorId: null });
       setIsAddUserOpen(false);
+      toast.success("Utilisateur créé avec succès");
     } catch (err) {
-      // Erreur création utilisateur
       setError("Erreur lors de la création de l'utilisateur");
+      toast.error(err?.message || "Erreur lors de la création de l'utilisateur");
     }
   };
 
@@ -251,9 +253,10 @@ const UserManagement = () => {
 
       setUsers(users.map((u) => (u.id === mapped.id ? mapped : u)));
       setEditingUser(null);
+      toast.success("Utilisateur mis à jour");
     } catch (err) {
-      // Erreur mise à jour utilisateur
       setError("Erreur lors de la mise à jour de l'utilisateur");
+      toast.error(err?.message || "Erreur lors de la mise à jour");
     }
   };
 
@@ -261,9 +264,10 @@ const UserManagement = () => {
     try {
       await deleteUser(userId);
       setUsers(users.filter((u) => u.id !== userId));
+      toast.success("Utilisateur supprimé");
     } catch (err) {
-      // Erreur suppression utilisateur
       setError("Erreur lors de la suppression de l'utilisateur");
+      toast.error(err?.message || "Erreur lors de la suppression");
     }
   };
 
@@ -293,7 +297,7 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center space-x-3">
           <span className="flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 text-blue-600">
@@ -480,7 +484,8 @@ const UserManagement = () => {
             Gérez les accès et les parts des utilisateurs sur les gisements
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -552,6 +557,7 @@ const UserManagement = () => {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

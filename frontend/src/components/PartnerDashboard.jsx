@@ -20,7 +20,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const PartnerDashboard = ({ userProfile }) => {
+const PartnerDashboard = ({ userProfile, onLogout }) => {
   const [deposits, setDeposits] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -118,6 +118,11 @@ const PartnerDashboard = ({ userProfile }) => {
               <RefreshCw className="h-4 w-4 mr-2" />
               Actualiser
             </Button>
+            {onLogout && (
+              <Button variant="outline" size="sm" onClick={onLogout}>
+                Déconnexion
+              </Button>
+            )}
           </div>
         </div>
       </div>

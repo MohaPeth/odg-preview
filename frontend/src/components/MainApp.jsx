@@ -9,11 +9,12 @@ import { getUsers } from "../services/usersApi";
 import WebGISMap from "./WebGISMap";
 import BlockchainDashboard from "./BlockchainDashboard";
 import LayersWorkspace from "./LayersWorkspace";
+import AnalyticsWorkspace from "./AnalyticsWorkspace";
 import SettingsWorkspace from "./SettingsWorkspace";
 import UserManagement from "./UserManagement";
 import PartnersManagement from "./PartnersManagement";
 
-const MainApp = () => {
+const MainApp = ({ userProfile, onLogout }) => {
   const [activeTab, setActiveTab] = useState("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -384,41 +385,6 @@ const MainApp = () => {
     </div>
   );
 
-  const AnalyticsContent = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Analyses et Rapports</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Fonctionnalité en Développement</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600">
-              Les modules d'analyse avancée et de génération de rapports sont en
-              cours de développement. Cette section permettra de visualiser des
-              statistiques détaillées, des tendances de production et des
-              analyses environnementales.
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Prochaines Fonctionnalités</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-gray-600">
-              <li>• Rapports de production automatisés</li>
-              <li>• Analyses d'impact environnemental</li>
-              <li>• Prévisions de rendement</li>
-              <li>• Tableaux de bord personnalisables</li>
-              <li>• Exportation multi-formats</li>
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -503,31 +469,39 @@ const MainApp = () => {
             <Menu className="h-4 w-4" />
           </Button>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between flex-1">
             <span className="text-sm text-gray-600">
               {navigation.find((item) => item.id === activeTab)?.name}
             </span>
+            <div className="flex items-center gap-2">
+              {userProfile && (
+                <span className="text-sm text-gray-700 hidden sm:inline" title={userProfile.email}>
+                  {userProfile.name || userProfile.email}
+                </span>
+              )}
+              {onLogout && (
+                <Button variant="outline" size="sm" onClick={onLogout}>
+                  Déconnexion
+                </Button>
+              )}
+            </div>
           </div>
         </header>
 
-        {/* Contenu */}
-        <main className="flex-1 overflow-auto">
+        {/* Contenu – padding responsif */}
+        <main className="flex-1 overflow-auto overflow-x-hidden">
           {activeTab === "home" && (
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <HomeContent />
             </div>
           )}
           {activeTab === "webgis" && <WebGISMap />}
           {activeTab === "layers" && <LayersWorkspace />}
           {activeTab === "blockchain" && <BlockchainDashboard />}
-          {activeTab === "analytics" && (
-            <div className="p-6">
-              <AnalyticsContent />
-            </div>
-          )}
+          {activeTab === "analytics" && <AnalyticsWorkspace />}
           {activeTab === "users" && <UserManagement />}
           {activeTab === "partners" && <PartnersManagement />}
-          {activeTab === "settings" && <SettingsWorkspace />}
+          {activeTab === "settings" && <SettingsWorkspace onNavigateToUsers={() => setActiveTab("users")} />}
         </main>
       </div>
     </div>

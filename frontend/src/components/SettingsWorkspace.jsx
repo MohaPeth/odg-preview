@@ -23,7 +23,7 @@ import {
   Users,
 } from "lucide-react";
 
-const SettingsWorkspace = () => {
+const SettingsWorkspace = ({ onNavigateToUsers }) => {
   const mockEnv = [
     { key: "FLASK_ENV", value: "development", description: "Mode d'exécution actuel" },
     { key: "DATABASE_URL", value: "postgresql://odg:***@localhost:5432/odg_dev", description: "Instance de développement" },
@@ -38,14 +38,18 @@ const SettingsWorkspace = () => {
     { name: "sensor_readings", description: "Capture des capteurs terrain", status: "PLANNED" },
   ];
 
+  // Rôles alignés sur le backend (admin, operator, partner) – données illustratives
   const mockUserRoles = [
-    { name: "Administrateur", count: 2, permissions: "Gestion complète" },
-    { name: "Analyste", count: 4, permissions: "Lecture & export" },
-    { name: "Opérateur terrain", count: 6, permissions: "Ajout de couches / gisements" },
+    { name: "Admin", count: 2, permissions: "Gestion complète" },
+    { name: "Operator", count: 6, permissions: "Ajout de couches / gisements" },
+    { name: "Partner", count: 4, permissions: "Lecture seule" },
   ];
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 sm:p-6">
+      <p className="text-xs text-gray-500 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+        Données illustratives : les blocs Environnement, Base de données et Rôles ne sont pas connectés à l&apos;API.
+      </p>
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center space-x-3">
           <span className="flex items-center justify-center h-12 w-12 rounded-full bg-slate-100 text-slate-700">
@@ -154,7 +158,7 @@ const SettingsWorkspace = () => {
               variant="outline" 
               size="sm" 
               className="w-full"
-              onClick={() => window.open('/user-management', '_blank')}
+              onClick={() => onNavigateToUsers?.()}
             >
               Gérer les utilisateurs
             </Button>
