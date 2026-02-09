@@ -1,3 +1,5 @@
+import { getAuthHeaders, checkUnauthorized } from './authUtils';
+
 const API_BASE_URL = '/api/operators';
 
 /**
@@ -12,7 +14,8 @@ export async function fetchOperators(search = '') {
 
   const url = params.toString() ? `${API_BASE_URL}/?${params.toString()}` : `${API_BASE_URL}/`;
 
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: getAuthHeaders() });
+  checkUnauthorized(response);
   let data;
 
   try {
@@ -29,7 +32,8 @@ export async function fetchOperators(search = '') {
 }
 
 export async function fetchOperatorById(id) {
-  const response = await fetch(`${API_BASE_URL}/${id}`);
+  const response = await fetch(`${API_BASE_URL}/${id}`, { headers: getAuthHeaders() });
+  checkUnauthorized(response);
   let data;
 
   try {

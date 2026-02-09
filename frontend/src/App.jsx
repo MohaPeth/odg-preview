@@ -1,23 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import MainApp from "./components/MainApp";
 import PartnerDashboard from "./components/PartnerDashboard";
 import Login from "./components/Login";
+import { getToken, setToken, clearAuth } from "./services/authUtils";
 import "./App.css";
 
 const STORAGE_KEY = "odg_user";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) ? true : false;
+    const hasProfile = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
+    return !!(getToken() && hasProfile);
   });
 
   const [userProfile, setUserProfile] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : null;
   });
 
-  const handleLogin = ({ user, rememberMe }) => {
-    if (!user) return;
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUserProfile(null);
+      setIsAuthenticated(false);
+    };
+    window.addEventListener("odg-unauthorized", onUnauthorized);
+    return () => window.removeEventListener("odg-unauthorized", onUnauthorized);
+  }, []);
+
+  const handleLogin = ({ user, token, rememberMe }) => {
+    if (!user || !token) return;
 
     const profile = {
       id: user.id,
@@ -29,14 +40,19 @@ function App() {
     };
 
     setUserProfile(profile);
+    setToken(token);
     if (rememberMe) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+    } else {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
     }
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
+    setToken(null);
     localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
     setUserProfile(null);
     setIsAuthenticated(false);
   };

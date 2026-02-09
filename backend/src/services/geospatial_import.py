@@ -387,7 +387,10 @@ class GeospatialImportService:
             
             if missing_files:
                 logger.error(f"Fichiers manquants pour le shapefile: {missing_files}")
-                raise ValueError(f"Impossible de lire le fichier SHP. Fichiers manquants: {', '.join(missing_files)}")
+                raise ValueError(
+                    f"Impossible de lire le fichier SHP. Fichiers manquants: {', '.join(missing_files)}. "
+                    "Pour un shapefile, uploadez une archive ZIP contenant les fichiers .shp, .shx et .dbf."
+                )
             
             # Lire le shapefile
             gdf = gpd.read_file(file_path)
@@ -896,7 +899,7 @@ class GeospatialImportService:
                     # Prendre la première géométrie par défaut
                     geom_wkt = gdf.geometry.iloc[0].wkt
             
-            # Préparation des métadonnées
+            # Préparation des métadonnées (layer_metadata pour cohérence avec le modèle)
             metadata_dict = {
                 'properties': gdf.drop('geometry', axis=1).to_dict('records') if len(gdf.columns) > 1 else [],
                 'source_info': {
@@ -910,6 +913,11 @@ class GeospatialImportService:
                     'file_size_bytes': os.path.getsize(file_path)
                 }
             }
+            # GeoJSON pour affichage frontend et fallback (SHP, KML, etc.)
+            try:
+                metadata_dict['geojson'] = json.loads(gdf.to_json())
+            except Exception as ex:
+                logger.warning(f"Export GeoJSON depuis GeoDataFrame ignoré: {ex}")
             
             # Création de la couche
             layer = GeospatialLayer(
@@ -922,7 +930,7 @@ class GeospatialImportService:
                 status=layer_config.get('status', 'actif'),
                 is_visible=True,  # BUG FIX #3: Explicitement visible par défaut
                 geom=ST_GeomFromText(geom_wkt, 4326),
-                metadata=metadata_dict
+                layer_metadata=metadata_dict
             )
             
             # Application du style par défaut

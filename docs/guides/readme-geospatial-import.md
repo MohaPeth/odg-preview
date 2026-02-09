@@ -163,11 +163,16 @@ print(json.dumps(feature, indent=2))
 |--------|-----------|-------------|---------|
 | KML | `.kml` | Google Earth | 🔄 En cours |
 | KMZ | `.kmz` | KML compressé | 🔄 En cours |
-| Shapefile | `.shp` | ESRI Standard | 🔄 En cours |
+| Shapefile | `.shp` (via ZIP) | ESRI Standard | ✅ Via archive ZIP |
 | GeoJSON | `.geojson` | JSON géospatial | 🔄 En cours |
 | CSV | `.csv` | Coordonnées tabulaires | 🔄 En cours |
 | TXT | `.txt` | Coordonnées brutes | 🔄 En cours |
 | TIFF | `.tiff` | Images géoréférencées | 🔄 En cours |
+
+### **Import Shapefile (SHP)**
+Un shapefile est un **ensemble de fichiers** (.shp, .shx, .dbf, optionnellement .prj). L’upload n’accepte qu’un seul fichier à la fois. Pour importer un shapefile :
+- **Recommandé** : déposez une **archive ZIP** contenant au minimum les fichiers `.shp`, `.shx` et `.dbf` (même nom de base, ex. `couche.shp`, `couche.shx`, `couche.dbf`).
+- Si vous uploadez uniquement le fichier `.shp`, l’import échouera car les fichiers compagnons sont requis.
 
 ## 🚨 Notes Importantes
 

@@ -5,7 +5,8 @@
 
 const config = {
   // API Configuration
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
+  // URL relative par défaut (proxy Vite / même origine en prod) ; override via VITE_API_BASE_URL si besoin
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '',
   
   // Application
   appName: import.meta.env.VITE_APP_NAME || 'ODG WebGIS',

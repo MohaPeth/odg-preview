@@ -93,12 +93,13 @@ backend/
 │   │   ├── blockchain.py          # Blockchain transaction CRUD
 │   │   ├── blockchain_integration.py  # Blockchain status and publishing
 │   │   ├── dashboard.py           # Dashboard summary statistics
-│   │   └── deposit_endpoints.py   # Mining deposit management
+│   │   └── mining_import.py       # Import gisements GeoJSON/CSV
 │   ├── services/
 │   │   ├── blockchain_service.py  # Web3 integration (simulation mode by default)
 │   │   └── geospatial_import.py   # Geospatial file processing logic
 │   └── config/
 │       └── blockchain_config.py   # Blockchain network configurations
+├── _archive/                       # deposit_endpoints_archive.py (archived; gisements via webgis + mining_import)
 ├── contracts/
 │   └── ODGTraceability.sol        # Solidity smart contract for traceability
 ├── config_production.py           # ProductionConfig and DevelopmentConfig classes
@@ -174,18 +175,15 @@ frontend/
 
 5. **User/Operator Management**: CRUD operations use `/api/users` and `/api/operators` endpoints.
 
-## Critical Security Issues
+## Critical Security (implemented)
 
-**WARNING: The authentication system currently has NO password verification.**
+**Authentication is in place for production-ready deployment.**
 
-The `/api/auth/login` endpoint in [backend/src/routes/user.py](backend/src/routes/user.py) accepts any email that exists in the database without checking a password. The `User` model does not have a `password_hash` field.
-
-**Before deploying to production:**
-1. Add `password_hash` column to the `users` table
-2. Implement password hashing with werkzeug.security or bcrypt
-3. Modify the login route to verify passwords
-4. Add JWT tokens or Flask sessions for authentication
-5. Protect all sensitive API endpoints with authentication middleware
+- **Login** (`POST /api/auth/login`): requires email + password; password verified via `password_hash` (Werkzeug); JWT issued on success.
+- **User model**: `password_hash` column and `set_password` / `check_password` in [backend/src/models/user.py](backend/src/models/user.py).
+- **Protected routes**: All `/api/*` routes require a valid JWT except login and `GET /api/health`; see [backend/src/auth.py](backend/src/auth.py) and [backend/src/main.py](backend/src/main.py).
+- **Rate limiting**: Flask-Limiter on login (e.g. 10/min per IP).
+- **Before first deploy**: Run migration `add_password_hash_to_users.sql`, then `python create_test_users.py` to set test user passwords. See [docs/operations/auth-et-securite.md](docs/operations/auth-et-securite.md).
 
 ## Configuration
 
@@ -252,12 +250,13 @@ Files are processed in [backend/src/services/geospatial_import.py](backend/src/s
 
 ## Known Limitations
 
-1. **No password authentication**: Login only requires a valid email
-2. **Blockchain in simulation mode**: No real blockchain transactions by default
-3. **No automated tests**: Test suite needs to be created in a `tests/` directory
-4. **Dashboard uses mock data in some places**: Some statistics are hardcoded in components instead of fetched from API
-5. **No pagination**: Large datasets are not paginated (could cause performance issues)
-6. **CORS is fully open in development**: `CORS_ORIGINS=['*']` allows all origins
+1. **Blockchain in simulation mode**: No real blockchain transactions by default (`BLOCKCHAIN_ENABLED=false`).
+2. **No automated tests**: Test suite needs to be created in a `tests/` directory; `deploy_production.sh` skips tests if absent.
+3. **Dashboard uses mock data in some places**: Some statistics are hardcoded in components instead of fetched from API.
+4. **No pagination**: Large datasets are not paginated (could cause performance issues).
+5. **CORS is fully open in development**: `CORS_ORIGINS=['*']` allows all origins; production must set explicit origins.
+
+**Security (implemented):** Login requires email + password; JWT is issued and required for all API routes except login and health; rate limiting on login; see [docs/operations/auth-et-securite.md](docs/operations/auth-et-securite.md).
 
 ## File Naming Conventions
 
@@ -265,6 +264,19 @@ Files are processed in [backend/src/services/geospatial_import.py](backend/src/s
 - Frontend: `PascalCase` for React components, `camelCase` for utilities
 - Database: `snake_case` for table and column names
 - API routes: `/api/resource-name` with hyphens
+
+## Documentation
+
+Project documentation is organized by responsibility (architecture, guides, métier, operations, historique):
+
+- **[docs/README.md](docs/README.md)** – Main documentation index
+- **docs/architecture/** – Technical analysis, blockchain overview, modules
+- **docs/guides/** – Installation, quick start, usage, tests, geospatial import/export
+- **docs/metier/** – Feature plans, geospatial implementation plan
+- **docs/operations/** – PostGIS setup, production readiness, integration tests
+- **docs/historique/** – Corrections, bug reports, verification (reference)
+
+Structure follows separation of concerns and maintainability (see `.cursor rules/semantic-coding-guardrails.md`).
 
 ## Important Notes
 

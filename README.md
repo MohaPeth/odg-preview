@@ -27,28 +27,35 @@ ODG est une plateforme intégrée comprenant :
 
 #### 1. Backend
 
+**Variables d'environnement** : le modèle est dans `backend/.env.example`. Créez `backend/.env` en copiant ce fichier, puis éditez (au minimum `DATABASE_URL`, `SECRET_KEY`). Voir [Démarrage développeur](docs/guides/demarrage-developpeur.md) pour le détail.
+
 ```bash
 cd backend
 
 # Créer environnement virtuel
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# Windows: venv\Scripts\activate
+# Linux/macOS: source venv/bin/activate
 
 # Installer dépendances
 pip install -r requirements.txt
 
-# Configurer variables d'environnement
-cp .env.example .env
-# Éditer .env avec vos valeurs
+# Créer .env depuis le modèle (puis éditer DATABASE_URL, SECRET_KEY)
+copy .env.example .env   # Windows
+# cp .env.example .env   # Linux/macOS
 
-# Initialiser la base de données
-python -c "from src.main import app, init_database; init_database()"
+# Base de données : créer la base PostgreSQL + PostGIS (voir docs/operations/installation-postgis-guide.md), puis :
+# 1) Appliquer la migration auth (une fois) : exécuter backend/src/migrations/add_password_hash_to_users.sql sur la base (psql, pgAdmin, etc.)
+# 2) Initialiser tables et données
+python init_production_db.py
+# 3) Créer les comptes de test (mot de passe par défaut : odg2025!)
+python create_test_users.py
 
 # Lancer le serveur
 python run_server.py
 ```
 
-Le backend sera accessible sur `http://localhost:5000`
+Le backend sera accessible sur `http://localhost:5000`. Connexion à l'interface : **admin@odg.ga** / **odg2025!** (ou voir `create_test_users.py`).
 
 #### 2. Frontend
 
@@ -81,30 +88,42 @@ docker-compose ps
 ## 📁 Structure du Projet
 
 ```
-odg-preview-main/
+odg-preview/
 ├── backend/                    # Backend Flask
 │   ├── src/
 │   │   ├── models/            # Modèles SQLAlchemy
-│   │   ├── routes/            # Endpoints API
+│   │   ├── routes/            # Endpoints API (user, health, webgis, blockchain, etc.)
 │   │   ├── services/          # Logique métier
-│   │   └── config/            # Configuration
-│   ├── _debug_scripts/        # Scripts utilitaires (dev uniquement)
+│   │   ├── auth.py            # Authentification JWT
+│   │   ├── limiter.py         # Rate limiting (login)
+│   │   └── migrations/       # Scripts SQL (ex. add_password_hash_to_users.sql)
 │   ├── _archive/              # Scripts d'installation archivés
-│   ├── requirements.txt       # Dépendances Python
-│   ├── config_production.py   # Configuration production/dev
-│   └── .env.example           # Template configuration
+│   ├── requirements.txt      # Dépendances Python
+│   ├── config_production.py  # Configuration production/dev
+│   ├── .env.example           # Template variables d'environnement (copier en .env)
+│   ├── run_server.py         # Lancer le serveur de dev
+│   ├── create_test_users.py  # Créer les comptes de test (admin, operator, partner)
+│   └── init_production_db.py # Initialiser les tables et données
 │
 ├── frontend/                   # Frontend React
 │   ├── src/
 │   │   ├── components/        # Composants React
-│   │   ├── services/          # API clients
-│   │   ├── hooks/             # React hooks personnalisés
-│   │   └── config/            # Configuration frontend
+│   │   ├── services/          # API clients (authUtils, usersApi, etc.)
+│   │   └── hooks/             # React hooks personnalisés
 │   ├── package.json
-│   └── .env.example
+│   └── .env.example           # Template (copier en .env si besoin)
 │
-├── docker-compose.yml          # PostgreSQL + PostGIS
-└── README.md                   # Ce fichier
+├── docs/                       # Documentation
+│   ├── README.md              # Index (par où commencer)
+│   ├── guides/                # Démarrage, utilisation, tests (développeur)
+│   ├── operations/           # Déploiement, auth, PostGIS, Hostinger
+│   ├── architecture/         # Analyse technique
+│   ├── metier/                # Plans et fonctionnalités
+│   └── historique/           # Corrections passées
+├── scripts/
+│   └── backup_postgres.sh     # Sauvegarde PostgreSQL (prod)
+├── docker-compose.yml         # PostgreSQL + PostGIS (optionnel)
+└── README.md                  # Ce fichier
 ```
 
 ## ⚙️ Configuration
@@ -155,13 +174,19 @@ VITE_FEATURE_BLOCKCHAIN=true
 - ✅ Authentification
 - ✅ Permissions par rôle
 
-## 📚 Documentation Complémentaire
+## 📚 Documentation
 
-- [Guide d'installation Windows](GUIDE_INSTALLATION_WINDOWS.md)
-- [Guide de démarrage rapide](GUIDE_DEMARRAGE_RAPIDE_WINDOWS.md)
-- [Documentation modules](README_ODG_Modules.md)
-- [Rapport bugs corrigés](RAPPORT_BUGS_CORRIGES.md)
-- [Corrections React](CORRECTIONS_CRASH_REACT.md)
+**Nouveau sur le projet ?** Suivez **exactement** le guide pas à pas : **[Démarrage développeur](docs/guides/demarrage-developpeur.md)** (prérequis, variables d'environnement, base de données, migration auth, comptes de test, lancer backend et frontend).
+
+**Où trouver quoi :**
+- **Variables d'environnement** : modèle dans `backend/.env.example` → créer `backend/.env` et éditer (voir [Démarrage développeur](docs/guides/demarrage-developpeur.md)).
+- **Connexion à l'application** : après `create_test_users.py`, utiliser **admin@odg.ga** / **odg2025!** (ou voir le script pour les autres comptes).
+
+**[→ Index de la documentation](docs/README.md)** — autres parcours :
+
+- **Utilisateur métier** : [Utilisation de la plateforme](docs/guides/guide-utilisation-odg.md)
+- **Déploiement / production** : [Opérations](docs/operations/README.md)
+- **Contributeur** : [Contribuer et lancer les tests](docs/guides/contribuer-et-tests.md)
 
 ## 🛠️ Technologies Utilisées
 
@@ -226,7 +251,7 @@ pnpm test
 - Ou désactiver dans .env : `BLOCKCHAIN_ENABLED=false`
 
 ### Imports géospatiaux échouent
-- Windows : Voir [GUIDE_INSTALLATION_WINDOWS.md](GUIDE_INSTALLATION_WINDOWS.md)
+- Windows : Voir [Guide installation Windows](docs/guides/installation-windows.md)
 - Installer GDAL, Fiona depuis wheels précompilés
 
 ## 👥 Équipe

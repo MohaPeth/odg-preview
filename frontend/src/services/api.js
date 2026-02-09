@@ -5,13 +5,16 @@
 
 import { useState } from "react";
 import L from "leaflet";
+import { getAuthHeaders, checkUnauthorized } from "./authUtils";
 
-const API_BASE_URL = "http://localhost:5000/api/webgis";
+const API_BASE_URL = "/api/webgis";
 
-// Configuration par défaut pour les requêtes
-const defaultHeaders = {
-  "Content-Type": "application/json",
-};
+function getHeaders() {
+  return {
+    "Content-Type": "application/json",
+    ...getAuthHeaders(),
+  };
+}
 
 class ApiService {
   /**
@@ -21,13 +24,12 @@ class ApiService {
     try {
       const response = await fetch(`${API_BASE_URL}/layers`, {
         method: "GET",
-        headers: defaultHeaders,
+        headers: getHeaders(),
       });
-
+      checkUnauthorized(response);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
-
       return await response.json();
     } catch (error) {
       console.error("Erreur récupération couches:", error);
@@ -64,13 +66,12 @@ class ApiService {
 
       const response = await fetch(url, {
         method: "GET",
-        headers: defaultHeaders,
+        headers: getHeaders(),
       });
-
+      checkUnauthorized(response);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
-
       return await response.json();
     } catch (error) {
       console.error("Erreur récupération gisements:", error);
@@ -85,10 +86,10 @@ class ApiService {
     try {
       const response = await fetch(`${API_BASE_URL}/deposits`, {
         method: "POST",
-        headers: defaultHeaders,
+        headers: getHeaders(),
         body: JSON.stringify(depositData),
       });
-
+      checkUnauthorized(response);
       const data = await response.json();
 
       if (!response.ok) {
@@ -116,9 +117,9 @@ class ApiService {
     try {
       const response = await fetch(`${API_BASE_URL}/deposits/${depositId}`, {
         method: "GET",
-        headers: defaultHeaders,
+        headers: getHeaders(),
       });
-
+      checkUnauthorized(response);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
@@ -155,13 +156,12 @@ class ApiService {
 
       const response = await fetch(url, {
         method: "GET",
-        headers: defaultHeaders,
+        headers: getHeaders(),
       });
-
+      checkUnauthorized(response);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
-
       return await response.json();
     } catch (error) {
       console.error("Erreur récupération communautés:", error);
@@ -182,13 +182,12 @@ class ApiService {
 
       const response = await fetch(`${API_BASE_URL}/search?${queryParams}`, {
         method: "GET",
-        headers: defaultHeaders,
+        headers: getHeaders(),
       });
-
+      checkUnauthorized(response);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
-
       return await response.json();
     } catch (error) {
       console.error("Erreur recherche:", error);
@@ -203,9 +202,9 @@ class ApiService {
     try {
       const response = await fetch(`${API_BASE_URL}/statistics`, {
         method: "GET",
-        headers: defaultHeaders,
+        headers: getHeaders(),
       });
-
+      checkUnauthorized(response);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
@@ -224,9 +223,9 @@ class ApiService {
     try {
       const response = await fetch(`${API_BASE_URL}/substances`, {
         method: "GET",
-        headers: defaultHeaders,
+        headers: getHeaders(),
       });
-
+      checkUnauthorized(response);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }

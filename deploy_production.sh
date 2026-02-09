@@ -154,19 +154,25 @@ init_database() {
     cd ..
 }
 
-# Tests de validation
+# Tests de validation (pytest - optionnel, désactiver si pas de tests)
 run_tests() {
-    log_info "Exécution des tests..."
+    log_info "Exécution des tests backend (pytest)..."
     
     cd backend
     source venv/bin/activate
     
-    # Tests backend
-    python test_geospatial_setup.py
-    python test_geospatial_import.py
+    if [ -d "tests" ] && command -v pytest &> /dev/null; then
+        pytest tests/ -q --tb=short
+        if [ $? -eq 0 ]; then
+            log_success "Tests validés"
+        else
+            log_warning "Certains tests ont échoué - vérifiez avant de déployer"
+        fi
+    else
+        log_warning "Dossier tests/ ou pytest non trouvé - étape tests ignorée"
+    fi
     
     cd ..
-    log_success "Tests validés"
 }
 
 # Configuration du serveur web

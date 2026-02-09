@@ -39,7 +39,7 @@ python run_server.py
 
 ### Accès
 - **API** : http://localhost:5000
-- **Documentation** : Voir `GUIDE_LANCEMENT.md`
+- **Documentation** : Voir [docs/README.md](../docs/README.md) (index) et [Guide lancement backend](../docs/guides/guide-lancement-backend.md)
 
 ---
 
@@ -266,17 +266,20 @@ tests/
 ### Lancer les tests
 
 ```bash
-pytest tests/
+pytest
+# ou : pytest tests/
 ```
+
+Détails et options (couverture, etc.) : [Lancer les tests](../docs/guides/lancer-les-tests.md).
 
 ---
 
 ## 📚 Documentation
 
-- **`GUIDE_LANCEMENT.md`** - Guide complet de lancement
-- **`ANALYSE_NETTOYAGE_BACKEND.md`** - Analyse de la structure
-- **`NETTOYAGE_COMPLETE.md`** - Rapport de nettoyage
-- **`_archive/`** - Scripts de setup PostgreSQL
+- **[Index documentation projet](../docs/README.md)** – Architecture, guides, métier, opérations, historique
+- **[Guide lancement backend](../docs/guides/guide-lancement-backend.md)** – Lancement et configuration
+- **[Historique nettoyage backend](../docs/historique/backend-nettoyage-complete.md)** – Rapport de nettoyage
+- **`_archive/`** – Scripts de setup PostgreSQL (référence)
 
 ---
 
@@ -333,7 +336,7 @@ taskkill /PID <PID> /F
 ## 📞 Support
 
 Pour toute question ou problème :
-1. Consulter `GUIDE_LANCEMENT.md`
+1. Consulter [Guide lancement backend](../docs/guides/guide-lancement-backend.md)
 2. Vérifier les logs du serveur
 3. Consulter `_archive/GUIDE_RESOLUTION_POSTGRESQL.md` pour les problèmes PostgreSQL
 

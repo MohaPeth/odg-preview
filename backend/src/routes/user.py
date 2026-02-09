@@ -1,9 +1,28 @@
+import os
+from datetime import datetime, timedelta
+
+import jwt
 from flask import Blueprint, jsonify, request
-from datetime import datetime
+from src.limiter import limiter
 from src.models.user import User
 from src.models.mining_data import db
 
 user_bp = Blueprint('user', __name__)
+
+# Durée de vie du JWT (24h)
+JWT_EXPIRATION_HOURS = 24
+
+
+def _create_token(user):
+    payload = {
+        'user_id': user.id,
+        'email': user.email,
+        'role': user.role,
+        'exp': datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS),
+        'iat': datetime.utcnow(),
+    }
+    secret = os.getenv('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    return jwt.encode(payload, secret, algorithm='HS256')
 
 
 @user_bp.route('/users', methods=['GET'])
@@ -74,24 +93,39 @@ def delete_user(user_id):
 
 
 @user_bp.route('/auth/login', methods=['POST'])
+@limiter.limit("10 per minute")
 def login():
-    """Authentification simplifiée par email.
-
-    Pour l'instant, aucun mot de passe n'est vérifié.
-    Cette route permet surtout de récupérer le profil utilisateur (rôle, statut, opérateur associé)
-    à partir de son email pour le dashboard interne.
-    """
+    """Authentification par email et mot de passe. Retourne un JWT et le profil minimal."""
     data = request.json or {}
 
     email = (data.get('email') or '').strip()
+    password = data.get('password') or ''
+
     if not email:
         return jsonify({'error': "L'email est obligatoire"}), 400
+    if not password:
+        return jsonify({'error': 'Le mot de passe est obligatoire'}), 400
 
     user = User.query.filter_by(email=email).first()
     if not user:
         return jsonify({'error': 'Identifiants invalides ou utilisateur introuvable'}), 401
 
+    if not user.password_hash:
+        return jsonify({
+            'error': 'Compte non initialisé. Un administrateur doit définir votre mot de passe.',
+        }), 403
+
+    if not user.check_password(password):
+        return jsonify({'error': 'Identifiants invalides ou utilisateur introuvable'}), 401
+
+    if user.status != 'active':
+        return jsonify({'error': 'Compte désactivé'}), 403
+
     user.last_login_at = datetime.utcnow()
     db.session.commit()
 
-    return jsonify(user.to_dict())
+    token = _create_token(user)
+    return jsonify({
+        'token': token,
+        'user': user.to_dict(),
+    })

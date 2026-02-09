@@ -29,15 +29,15 @@ const Login = ({ onLogin }) => {
       setError("Merci de renseigner votre adresse email.");
       return;
     }
+    if (!password) {
+      setError("Merci de renseigner votre mot de passe.");
+      return;
+    }
 
     try {
       setLoading(true);
-
-      // Appel API vers le backend pour récupérer le profil utilisateur
-      // Auth simplifiée : seule l'adresse email est utilisée côté backend.
-      const user = await loginUser({ email, password });
-
-      onLogin({ user, rememberMe });
+      const data = await loginUser({ email, password });
+      onLogin({ user: data.user, token: data.token, rememberMe });
     } catch (err) {
       setError(err.message || "Connexion impossible. Veuillez réessayer.");
     } finally {
@@ -78,7 +78,7 @@ const Login = ({ onLogin }) => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe <span className="text-gray-400 text-xs">(optionnel - mode test)</span></Label>
+              <Label htmlFor="password">Mot de passe</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input

@@ -1,5 +1,23 @@
 # -*- coding: utf-8 -*-
 """
+ARCHIVÉ - Endpoint d'ajout de gisement (Phase 2).
+
+Rôle initial : validation et création de gisements miniers via le modèle MiningDepositGIS
+et le référentiel Substance.
+
+Raison de l'archivage :
+- Non enregistré dans main.py (jamais branché).
+- Dépend de models.geospatial.MiningDepositGIS et models.substances (imports sans src.),
+  modèles/chemins absents ou différents dans le dépôt actuel.
+- Doublon fonctionnel avec webgis (CRUD gisements) et mining_import (import GeoJSON).
+
+La gestion des gisements passe par : webgis (routes /api/webgis/deposits) et
+mining_import (POST /api/mining/import/deposits).
+Conservé pour référence uniquement.
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Endpoint d'ajout de gisement - Phase 2
 Fonctions de validation et création de gisements miniers
 """

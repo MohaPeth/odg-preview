@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { getAuthHeaders, checkUnauthorized } from './authUtils';
 
 const API_BASE_URL = '/api/geospatial';
 
@@ -15,6 +16,7 @@ class ApiClient {
     const config = {
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeaders(),
         ...options.headers
       },
       ...options
@@ -27,7 +29,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      
+      checkUnauthorized(response);
       const data = await response.json();
 
       if (!response.ok) {

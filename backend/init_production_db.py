@@ -13,8 +13,17 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from flask import Flask
+from sqlalchemy import text
 from src.models.mining_data import db
 from src.models.geospatial_layers import GeospatialLayer, LayerUploadHistory
+
+
+def _execute_sql(sql, params=None):
+    """Exécute du SQL brut (compatible SQLAlchemy 2.0)."""
+    with db.engine.connect() as conn:
+        result = conn.execute(text(sql), params or {})
+        conn.commit()
+        return result
 
 # Configuration du logging
 logging.basicConfig(
@@ -50,7 +59,7 @@ def check_postgis_extensions(app):
     with app.app_context():
         try:
             # Vérifier si PostGIS est disponible
-            result = db.engine.execute("SELECT PostGIS_Version();")
+            result = _execute_sql("SELECT PostGIS_Version();")
             version = result.fetchone()[0]
             logger.info(f"✅ PostGIS détecté : {version}")
             return True
@@ -83,7 +92,7 @@ def apply_migrations(app):
             for i, command in enumerate(commands, 1):
                 if command:
                     logger.info(f"📝 Exécution commande {i}/{len(commands)}")
-                    db.engine.execute(command)
+                    _execute_sql(command)
             
             logger.info("✅ Migrations appliquées avec succès")
             return True
@@ -118,10 +127,10 @@ def verify_installation(app):
             ]
             
             for table in tables_to_check:
-                result = db.engine.execute(f"""
-                    SELECT COUNT(*) FROM information_schema.tables 
-                    WHERE table_name = '{table}'
-                """)
+                result = _execute_sql("""
+                    SELECT COUNT(*) FROM information_schema.tables
+                    WHERE table_name = :tname
+                """, {"tname": table})
                 count = result.fetchone()[0]
                 
                 if count > 0:
@@ -131,7 +140,7 @@ def verify_installation(app):
                     return False
             
             # Vérifier les fonctions PostGIS
-            result = db.engine.execute("SELECT ST_AsText(ST_Point(0, 0));")
+            result = _execute_sql("SELECT ST_AsText(ST_Point(0, 0));")
             point = result.fetchone()[0]
             logger.info(f"✅ Fonctions PostGIS opérationnelles : {point}")
             
@@ -161,8 +170,8 @@ def create_sample_data(app):
                 return True
             
             # Créer une couche d'exemple
-            from sqlalchemy import text
-            
+            from geoalchemy2.functions import ST_GeomFromText
+
             sample_layer = GeospatialLayer(
                 name="Zone Test ODG",
                 description="Couche de test créée lors de l'initialisation",
@@ -171,14 +180,13 @@ def create_sample_data(app):
                 source_format="SYSTEM",
                 status="actif",
                 is_visible=True,
-                metadata={
+                layer_metadata={
                     "created_by": "init_script",
                     "purpose": "test_installation"
                 }
             )
-            
-            # Ajouter une géométrie simple (point à Libreville)
-            sample_layer.geom = text("ST_GeomFromText('POINT(9.4536 0.3901)', 4326)")
+            # Géométrie simple (point à Libreville)
+            sample_layer.geom = ST_GeomFromText('POINT(9.4536 0.3901)', 4326)
             
             db.session.add(sample_layer)
             db.session.commit()

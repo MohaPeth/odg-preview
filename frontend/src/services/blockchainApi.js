@@ -1,6 +1,9 @@
+import { getAuthHeaders, checkUnauthorized } from "./authUtils";
+
 const BASE_URL = "/api/blockchain-integration";
 
 async function handleResponse(response) {
+  checkUnauthorized(response);
   let data;
   try {
     data = await response.json();
@@ -19,6 +22,8 @@ async function handleResponse(response) {
 }
 
 export async function fetchBlockchainStatus() {
-  const response = await fetch(`${BASE_URL}/status`);
+  const response = await fetch(`${BASE_URL}/status`, {
+    headers: getAuthHeaders(),
+  });
   return handleResponse(response);
 }

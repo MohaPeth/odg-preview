@@ -22,6 +22,37 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _deposit_data_to_model_kwargs(deposit_data):
+    """
+    Mappe les clés GeoJSON (substance, operator, estimated_reserves, etc.)
+    vers les attributs du modèle MiningDeposit (type, company, estimated_quantity).
+    """
+    status_raw = (deposit_data.get('status') or 'exploration').strip()
+    status_map = {
+        'exploration': 'Exploration',
+        'en développement': 'En développement',
+        'en developpement': 'En développement',
+        'actif': 'Actif',
+        'suspendu': 'Suspendu',
+        'fermé': 'Fermé',
+        'ferme': 'Fermé',
+    }
+    status = status_map.get(status_raw.lower(), status_raw if status_raw else 'Exploration')
+    if status not in ('Actif', 'En développement', 'Exploration', 'Suspendu', 'Fermé'):
+        status = 'Exploration'
+
+    return {
+        'name': deposit_data.get('name') or 'Dépôt',
+        'type': deposit_data.get('deposit_type') or deposit_data.get('substance') or 'Inconnu',
+        'latitude': deposit_data['latitude'],
+        'longitude': deposit_data['longitude'],
+        'company': deposit_data.get('operator') or 'Non spécifié',
+        'estimated_quantity': deposit_data.get('estimated_reserves'),
+        'status': status,
+        'description': deposit_data.get('description'),
+    }
+
+
 @mining_import_bp.route('/import/deposits', methods=['POST'])
 def import_deposits():
     """
@@ -88,22 +119,20 @@ def import_deposits():
         
         for deposit_data in deposits:
             try:
-                # Vérifier si le dépôt existe déjà (par nom)
-                existing = MiningDeposit.query.filter_by(name=deposit_data['name']).first()
-                
+                kwargs = _deposit_data_to_model_kwargs(deposit_data)
+                existing = MiningDeposit.query.filter_by(name=kwargs['name']).first()
+
                 if existing:
-                    # Mise à jour
-                    for key, value in deposit_data.items():
+                    for key, value in kwargs.items():
                         if hasattr(existing, key) and key != 'id':
                             setattr(existing, key, value)
-                    existing.updated_at = datetime.utcnow().isoformat()
+                    existing.updated_at = datetime.utcnow()
                 else:
-                    # Création
-                    deposit = MiningDeposit(**deposit_data)
+                    deposit = MiningDeposit(**kwargs)
                     db.session.add(deposit)
-                
+
                 imported_count += 1
-                
+
             except Exception as e:
                 logger.error(f"Erreur import dépôt {deposit_data.get('name', 'N/A')}: {str(e)}")
                 errors.append(f"{deposit_data.get('name', 'N/A')}: {str(e)}")

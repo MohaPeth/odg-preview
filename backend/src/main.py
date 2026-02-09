@@ -10,16 +10,20 @@ load_dotenv(env_path)
 print(f"📄 Chargement des variables depuis {env_path}")
 print(f"✅ DATABASE_URL chargée: {os.getenv('DATABASE_URL', 'NON DÉFINIE')[:50]}...")
 
-from flask import Flask, send_from_directory
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from src.models.mining_data import db
+from src.auth import get_current_user_from_token
+from src.limiter import limiter
 from src.models.geospatial_layers import GeospatialLayer, LayerUploadHistory
+from src.routes.health import health_bp
 from src.routes.user import user_bp
 from src.routes.webgis import webgis_bp
 from src.routes.blockchain import blockchain_bp
 from src.routes.geospatial_import import geospatial_import_bp
 from src.routes.operators import operators_bp
 from src.routes.blockchain_integration import blockchain_integration_bp
+from src.routes.dashboard import dashboard_bp
 from src.routes.mining_import import mining_import_bp
 
 # Import de la configuration
@@ -55,9 +59,6 @@ def create_app():
     app.config.from_object(Config)
     app.config['BLOCKCHAIN_AVAILABLE'] = BLOCKCHAIN_AVAILABLE
     
-    # Configuration
-    app.config.from_object(Config)
-    
     # Validation pour la production
     if os.getenv('FLASK_ENV') == 'production':
         try:
@@ -71,6 +72,7 @@ def create_app():
     CORS(app, origins=cors_origins)
     
     # Enregistrement des blueprints
+    app.register_blueprint(health_bp, url_prefix='/api')
     app.register_blueprint(user_bp, url_prefix='/api')
     app.register_blueprint(webgis_bp, url_prefix='/api/webgis')
     
@@ -83,13 +85,34 @@ def create_app():
     else:
         print("⚠️  Modules blockchain en mode dégradé (dépendances web3 manquantes)")
     
+    app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(geospatial_import_bp, url_prefix='/api/geospatial')
     app.register_blueprint(operators_bp, url_prefix='/api/operators')
     app.register_blueprint(mining_import_bp, url_prefix='/api/mining')
     
     # Initialisation de la base de données
     db.init_app(app)
-    
+
+    # Rate limiting (appel après db.init_app pour avoir le contexte)
+    limiter.init_app(app)
+
+    # Protection JWT : toutes les routes /api/* sauf login et health exigent un token valide
+    @app.before_request
+    def require_auth_for_api():
+        path = request.path
+        if not path.startswith('/api/'):
+            return None
+        if request.method == 'POST' and path.rstrip('/') == '/api/auth/login':
+            return None
+        if request.method == 'GET' and path.rstrip('/') == '/api/health':
+            return None
+        user = get_current_user_from_token()
+        if user is None:
+            return jsonify({'error': 'Authentification requise ou token invalide/expiré'}), 401
+        from flask import g
+        g.current_user = user
+        return None
+
     # Configuration des logs pour la production
     if hasattr(Config, 'LOG_LEVEL'):
         setup_logging(app)
